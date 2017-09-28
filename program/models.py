@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import rrule
 
-from utils import get_automation_id_choices
+from .utils import get_automation_id_choices
 
 
 class BroadcastFormat(models.Model):
@@ -27,14 +27,14 @@ class BroadcastFormat(models.Model):
         verbose_name_plural = _("Broadcast formats")
 
     def admin_color(self):
-        return u'<span style="background-color: %s; color: %s; padding: 0.2em">%s/%s</span>' % (
+        return '<span style="background-color: %s; color: %s; padding: 0.2em">%s/%s</span>' % (
             self.color, self.text_color, self.color, self.text_color)
 
     admin_color.short_description = _("Color")
     admin_color.allow_tags = True
 
-    def __unicode__(self):
-        return u'%s' % self.format
+    def __str__(self):
+        return '%s' % self.format
 
 
 class ShowInformation(models.Model):
@@ -53,19 +53,19 @@ class ShowInformation(models.Model):
     def admin_buttons(self):
         buttons = []
         if self.button:
-            buttons.append(u'<img src="%s" />' % self.button.url)
+            buttons.append('<img src="%s" />' % self.button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.button_hover:
-            buttons.append(u'<img src="%s" />' % self.button_hover.url)
+            buttons.append('<img src="%s" />' % self.button_hover.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.big_button:
-            buttons.append(u'<img src="%s" />' % self.big_button.url)
+            buttons.append('<img src="%s" />' % self.big_button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         return ' '.join(buttons)
 
@@ -90,8 +90,8 @@ class ShowInformation(models.Model):
         else:
             return '/site_media/buttons/default-17.png'
 
-    def __unicode__(self):
-        return u'%s' % self.information
+    def __str__(self):
+        return '%s' % self.information
 
 
 class ShowTopic(models.Model):
@@ -110,19 +110,19 @@ class ShowTopic(models.Model):
     def admin_buttons(self):
         buttons = []
         if self.button:
-            buttons.append(u'<img src="%s" />' % self.button.url)
+            buttons.append('<img src="%s" />' % self.button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.button_hover:
-            buttons.append(u'<img src="%s" />' % self.button_hover.url)
+            buttons.append('<img src="%s" />' % self.button_hover.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.big_button:
-            buttons.append(u'<img src="%s" />' % self.big_button.url)
+            buttons.append('<img src="%s" />' % self.big_button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         return ' '.join(buttons)
 
@@ -147,8 +147,8 @@ class ShowTopic(models.Model):
         else:
             return '/site_media/buttons/default-17.png'
 
-    def __unicode__(self):
-        return u'%s' % self.topic
+    def __str__(self):
+        return '%s' % self.topic
 
 
 class MusicFocus(models.Model):
@@ -167,19 +167,19 @@ class MusicFocus(models.Model):
     def admin_buttons(self):
         buttons = []
         if self.button:
-            buttons.append(u'<img src="%s" />' % self.button.url)
+            buttons.append('<img src="%s" />' % self.button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.button_hover:
-            buttons.append(u'<img src="%s" />' % self.button_hover.url)
+            buttons.append('<img src="%s" />' % self.button_hover.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         if self.big_button:
-            buttons.append(u'<img src="%s" />' % self.big_button.url)
+            buttons.append('<img src="%s" />' % self.big_button.url)
         else:
-            buttons.append(u'x')
+            buttons.append('x')
 
         return ' '.join(buttons)
 
@@ -204,8 +204,8 @@ class MusicFocus(models.Model):
         else:
             return '/site_media/buttons/default-17.png'
 
-    def __unicode__(self):
-        return u'%s' % self.focus
+    def __str__(self):
+        return '%s' % self.focus
 
 
 class Host(models.Model):
@@ -219,8 +219,8 @@ class Host(models.Model):
         verbose_name = _("Host")
         verbose_name_plural = _("Hosts")
 
-    def __unicode__(self):
-        return u'%s' % self.name
+    def __str__(self):
+        return '%s' % self.name
 
     def get_absolute_url(self):
         return reverse('host-detail', args=[str(self.id)])
@@ -253,8 +253,8 @@ class Show(models.Model):
         verbose_name = _("Show")
         verbose_name_plural = _("Shows")
 
-    def __unicode__(self):
-        return u'%04d | %s' % (self.id, self.name)
+    def __str__(self):
+        return '%04d | %s' % (self.id, self.name)
 
     def get_absolute_url(self):
         return reverse('show-detail', args=[self.slug])
@@ -289,8 +289,8 @@ class RRule(models.Model):
         verbose_name = _("Recurrence rule")
         verbose_name_plural = _("Recurrence rules")
 
-    def __unicode__(self):
-        return u'%s' % self.name
+    def __str__(self):
+        return '%s' % self.name
 
 
 class ProgramSlot(models.Model):
@@ -321,18 +321,18 @@ class ProgramSlot(models.Model):
         verbose_name = _("Program slot")
         verbose_name_plural = _("Program slots")
 
-    def __unicode__(self):
+    def __str__(self):
         weekday = self.BYWEEKDAY_CHOICES[self.byweekday][1]
         tend = self.tend.strftime('%H:%M')
         dstart = self.dstart.strftime('%d. %b %Y')
         tstart = self.tstart.strftime('%H:%M')
 
         if self.rrule.freq == 0:
-            return u'%s, %s - %s' % (dstart, tstart, tend)
+            return '%s, %s - %s' % (dstart, tstart, tend)
         if self.rrule.freq == 3:
-            return u'%s, %s - %s' % (self.rrule, tstart, tend)
+            return '%s, %s - %s' % (self.rrule, tstart, tend)
         else:
-            return u'%s, %s, %s - %s' % (weekday, self.rrule, tstart, tend)
+            return '%s, %s, %s - %s' % (weekday, self.rrule, tstart, tend)
 
     def save(self, *args, **kwargs):
         if self.pk:
@@ -463,11 +463,11 @@ class TimeSlot(models.Model):
         verbose_name = _("Time slot")
         verbose_name_plural = _("Time slots")
 
-    def __unicode__(self):
+    def __str__(self):
         start = self.start.strftime('%d.%m.%Y %H:%M')
         end = self.end.strftime('%H:%M')
 
-        return u'%s - %s  |  %s' % (start, end, self.show.name)
+        return '%s - %s  |  %s' % (start, end, self.show.name)
 
     def save(self, *args, **kwargs):
         self.show = self.programslot.show
@@ -497,8 +497,8 @@ class Note(models.Model):
         verbose_name = _("Note")
         verbose_name_plural = _("Notes")
 
-    def __unicode__(self):
-        return u'%s - %s' % (self.title, self.timeslot)
+    def __str__(self):
+        return '%s - %s' % (self.title, self.timeslot)
 
     def save(self, *args, **kwargs):
         self.start = self.timeslot.start

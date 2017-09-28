@@ -8,7 +8,7 @@ from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 
-from models import BroadcastFormat, MusicFocus, Note, Show, ShowInformation, ShowTopic, TimeSlot, Host
+from .models import BroadcastFormat, MusicFocus, Note, Show, ShowInformation, ShowTopic, TimeSlot, Host
 
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
@@ -209,7 +209,7 @@ def json_day_schedule(request, year=None, month=None, day=None):
 
         schedule.append(entry)
 
-    return HttpResponse(json.dumps(schedule, ensure_ascii=False, encoding='utf8').encode('utf8'),
+    return HttpResponse(json.dumps(schedule, ensure_ascii=False).encode('utf8'),
                         content_type="application/json; charset=utf-8")
 
 
@@ -235,5 +235,5 @@ def json_timeslots_specials(request):
         specials[automation_id]['pv_start'] = start
         specials[automation_id]['pv_end'] = end
 
-    return HttpResponse(json.dumps(specials, ensure_ascii=False, encoding='utf8').encode('utf8'),
+    return HttpResponse(json.dumps(specials, ensure_ascii=False).encode('utf8'),
                         content_type="application/json; charset=utf-8")

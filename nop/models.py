@@ -23,7 +23,7 @@ class Master(models.Model):
     carttype = CartTypeField(max_length=64, blank=True)
 
     class Meta:
-        db_table = u'master'
+        db_table = 'master'
         ordering = ['-timestamp']
 
 
@@ -38,7 +38,7 @@ class Standby(models.Model):
     carttype = CartTypeField(max_length=64, blank=True)
 
     class Meta:
-        db_table = u'standby'
+        db_table = 'standby'
         ordering = ['-timestamp']
 
 
@@ -47,5 +47,5 @@ class State(models.Model):
     state = models.CharField(max_length=96, blank=True)
 
     class Meta:
-        db_table = u'state'
+        db_table = 'state'
         ordering = ['-timestamp']

@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from django.views.static import serve
 
-from views import get, get_current, nop_form
+from .views import get, get_current, nop_form
 
 import os
 

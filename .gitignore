@@ -7,3 +7,4 @@ pv/site_media/buttons/s-*.png
 pv/site_media/buttons/r-*.png
 pv/site_media/show_images/*
 pv/cache/*
+pv/mysql.cnf

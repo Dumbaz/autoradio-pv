@@ -11,6 +11,7 @@ from datetime import date, datetime, time, timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import rrule
 
+
 from .utils import get_automation_id_choices
 
 
@@ -259,16 +260,19 @@ class Show(models.Model):
     def get_absolute_url(self):
         return reverse('show-detail', args=[self.slug])
 
+    # Called by show templates
     def active_programslots(self):
         return self.programslots.filter(until__gt=date.today())
 
 
 class RRule(models.Model):
+
     FREQ_CHOICES = (
         (1, _("Monthly")),
         (2, _("Weekly")),
         (3, _("Daily")),
     )
+
     BYSETPOS_CHOICES = (
         (1, _("First")),
         (2, _("Second")),
@@ -277,7 +281,7 @@ class RRule(models.Model):
         (5, _("Fifth")),
         (-1, _("Last")),
     )
-    name = models.CharField(_("Name"), max_length=32, unique=True)
+    name = models.CharField(_("Name"), max_length=32, unique=True) # ,default=1
     freq = models.IntegerField(_("Frequency"), choices=FREQ_CHOICES)
     interval = models.IntegerField(_("Interval"), default=1)
     bysetpos = models.IntegerField(_("Set position"), blank=True,
@@ -285,7 +289,7 @@ class RRule(models.Model):
     count = models.IntegerField(_("Count"), blank=True, null=True)
 
     class Meta:
-        ordering = ('-freq', 'interval', 'bysetpos')
+        ordering = ('pk',)
         verbose_name = _("Recurrence rule")
         verbose_name_plural = _("Recurrence rules")
 
@@ -303,6 +307,7 @@ class ProgramSlot(models.Model):
         (5, _("Saturday")),
         (6, _("Sunday")),
     )
+
     rrule = models.ForeignKey(RRule, related_name='programslots', verbose_name=_("Recurrence rule"))
     byweekday = models.IntegerField(_("Weekday"), choices=BYWEEKDAY_CHOICES)
     show = models.ForeignKey(Show, related_name='programslots', verbose_name=_("Show"))
@@ -312,12 +317,14 @@ class ProgramSlot(models.Model):
     until = models.DateField(_("Last date"))
     is_repetition = models.BooleanField(_("Is repetition"), default=False)
     automation_id = models.IntegerField(_("Automation ID"), blank=True, null=True, choices=get_automation_id_choices())
-    created = models.DateTimeField(auto_now_add=True, editable=False)
-    last_updated = models.DateTimeField(auto_now=True, editable=False)
+    created = models.DateTimeField(auto_now_add=True, editable=False, null=True) #-> both see https://stackoverflow.com/questions/1737017/django-auto-now-and-auto-now-add
+    last_updated = models.DateTimeField(auto_now=True, editable=False, null=True)
 
     class Meta:
         ordering = ('dstart', 'tstart')
-        unique_together = ('rrule', 'byweekday', 'dstart', 'tstart')
+        # Produces error when adding several programslots at the same time.
+        # Do this test in another way, since it is quite unspecific anyway
+        #unique_together = ('rrule', 'byweekday', 'dstart', 'tstart')
         verbose_name = _("Program slot")
         verbose_name_plural = _("Program slots")
 
@@ -328,76 +335,126 @@ class ProgramSlot(models.Model):
         tstart = self.tstart.strftime('%H:%M')
 
         if self.rrule.freq == 0:
-            return '%s, %s - %s' % (dstart, tstart, tend)
+            return '%s %s, %s - %s' % (self.rrule, dstart, tstart, tend)
         if self.rrule.freq == 3:
             return '%s, %s - %s' % (self.rrule, tstart, tend)
         else:
             return '%s, %s, %s - %s' % (weekday, self.rrule, tstart, tend)
 
-    def save(self, *args, **kwargs):
-        if self.pk:
-            old = ProgramSlot.objects.get(pk=self.pk)
-            if self.rrule != old.rrule:
-                raise ValidationError(u"Recurrence rule cannot ba changed")
-            if self.byweekday != old.byweekday:
-                raise ValidationError(u"Weekday cannot be changed")
-            if self.show != old.show:
-                raise ValidationError(u"Show cannot be changed")
-            if self.dstart != old.dstart:
-                raise ValidationError(u"First date cannot ba changed")
-            if self.tstart != old.tstart:
-                raise ValidationError(u"Start time cannot be changed")
-            if self.tend != old.tend:
-                raise ValidationError(u"End time cannot be changed")
-            if self.is_repetition != old.is_repetition:
-                raise ValidationError(u"Is repetition cannot be changed")
-        else:
-            old = False
+    def generate_timeslots(programslot):
+        """
+        Returns a list of timeslot objects based on a programslot and its rrule
+        Returns past timeslots starting from dstart (not today)
 
-        super(ProgramSlot, self).save(*args, **kwargs)
+          TODO for ENDING TIMES:
 
-        if self.rrule.freq == 0:
+          1. If rrule is 'on even or odd calendar weeks' and a timeslot lasts from SUN 23:00 - MON 00:00,
+          the end date will be in the next week, which is excluded by byweekno. Thus the end date will be in the week _after next_.
+
+          2. If rrule is 'on business days' and a timeslot lasts from FRI 23:00 - SAT 00:00,
+          the end date will be on a weekday, which is excluded by byweekday_end (and actually returns the next week-1day, which is quite unexpected)
+
+          Solution:
+            - Correct those end-dates or find a better way to formulate rrule()
+              - Either determine byweekno for ends beforehand for that case (when byweekday_end is determined)
+              - Check if combinations of dend, byweekday_end, byweekno (or interval and bysetpos) might have something to do with the problem
+        """
+
+        byweekno = None
+        byweekday_end = int(programslot.byweekday)
+        starts = []
+        ends = []
+        timeslots = []
+
+        if programslot.rrule.freq == 0: # Ignore weekdays for one-time timeslots
             byweekday_start = None
             byweekday_end = None
-        elif self.rrule.freq == 3:
+        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 2: # Daily timeslots
             byweekday_start = (0, 1, 2, 3, 4, 5, 6)
             byweekday_end = (0, 1, 2, 3, 4, 5, 6)
+        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 3: # Business days MO - FR
+            byweekday_start = (0, 1, 2, 3, 4)
+            byweekday_end = (0, 1, 2, 3, 4)
+        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 7: # Even calendar weeks
+            byweekday_start = int(programslot.byweekday)
+            byweekno = list(range(2, 54, 2))
+        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 8: # Odd calendar weeks
+            byweekday_start = int(programslot.byweekday)
+            byweekno = list(range(1, 54, 2))
         else:
-            byweekday_start = int(self.byweekday)
+            byweekday_start = int(programslot.byweekday)
 
-            if self.tend < self.tstart:
-                if self.byweekday < 6:
-                    byweekday_end = int(self.byweekday + 1)
-                else:
-                    byweekday_end = 0
+        # Handle ending weekday for timeslots over midnight
+        if programslot.tend < programslot.tstart:
+            if programslot.byweekday < 6:
+                byweekday_end = int(programslot.byweekday + 1)
             else:
-                byweekday_end = int(self.byweekday)
+                byweekday_end = 0
 
-        if self.tend < self.tstart:
-            dend = self.dstart + timedelta(days=+1)
+        # Handle ending dates for timeslots over midnight
+        if programslot.tend < programslot.tstart:
+            dend = programslot.dstart + timedelta(days=+1)
         else:
-            dend = self.dstart
+            dend = programslot.dstart
 
-        starts = list(rrule(freq=self.rrule.freq,
-                            dtstart=datetime.combine(self.dstart, self.tstart),
-                            interval=self.rrule.interval,
-                            until=self.until + relativedelta(days=+1),
-                            bysetpos=self.rrule.bysetpos,
-                            byweekday=byweekday_start))
-        ends = list(rrule(freq=self.rrule.freq,
-                          dtstart=datetime.combine(dend, self.tend),
-                          interval=self.rrule.interval,
-                          until=self.until + relativedelta(days=+1),
-                          bysetpos=self.rrule.bysetpos,
-                          byweekday=byweekday_end))
+        if programslot.rrule.freq == 0:
+            starts.append(datetime.combine(programslot.dstart, programslot.tstart))
+            ends.append(datetime.combine(dend, programslot.tend))
+        else:
 
-        if not old:
+            starts = list(rrule(freq=programslot.rrule.freq,
+                            dtstart=datetime.combine(programslot.dstart, programslot.tstart),
+                            interval=programslot.rrule.interval,
+                            until=programslot.until + relativedelta(days=+1),
+                            bysetpos=programslot.rrule.bysetpos,
+                            byweekday=byweekday_start,
+                            byweekno=byweekno))
+            ends = list(rrule(freq=programslot.rrule.freq,
+                          dtstart=datetime.combine(dend, programslot.tend),
+                          interval=programslot.rrule.interval,
+                          until=programslot.until + relativedelta(days=+1),
+                          bysetpos=programslot.rrule.bysetpos,
+                          byweekday=byweekday_end,
+                          byweekno=byweekno))
+
             for k in range(min(len(starts), len(ends))):
-                TimeSlot.objects.create(programslot=self, start=starts[k], end=ends[k])
-        elif self.until > old.until:
-            for k in range(min(len(starts), len(ends))):
-                if starts[k].date() > old.until:
-                    TimeSlot.objects.create(programslot=self, start=starts[k], end=ends[k])
+                timeslots.append(TimeSlot(programslot=programslot, start=starts[k], end=ends[k]).generate())
+
+        return timeslots
+
+
+    def get_collisions(timeslots):
+        """
+        Tests a list of timeslot objects for colliding timeslots in the database
+        Returns a list of collisions, containing colliding timeslot IDs or None
+        Keeps indices from input list for later comparison
+        """
+
+        collisions = []
+
+        for ts in timeslots:
+
+            collision = TimeSlot.objects.filter(
+                           ( Q(start__lt=ts.end) & Q(end__gte=ts.end) ) |
+                           ( Q(end__gt=ts.start) & Q(end__lte=ts.end) ) |
+                           ( Q(start__gte=ts.start) & Q(end__lte=ts.end) ) |
+                           ( Q(start__lte=ts.start) & Q(end__gte=ts.end) )
+                        )
+
+            if(collision):
+                collisions.append(collision[0]) # TODO: Do we really always retrieve one?
+            else:
+                collisions.append(None)
+
+        return collisions
+
+
+    def save(self, *args, **kwargs):
+        # TODO: Test if auto_now_add and auto_now really always work
+        #if not self.id or self.id == None:
+        #    self.created = datetime.today()
+
+        super(ProgramSlot, self).save(*args, **kwargs)
 
 
 class TimeSlotManager(models.Manager):
@@ -450,9 +507,17 @@ class TimeSlotManager(models.Manager):
                                        Q(start__gt=start, start__lt=end)).exclude(end=start)
 
 
+    @staticmethod
+    def get_7d_timeslots(start):
+        end = start + timedelta(hours=168)
+
+        return TimeSlot.objects.filter(Q(start__lte=start, end__gte=start) |
+                                       Q(start__gt=start, start__lt=end)).exclude(end=start)
+
+
 class TimeSlot(models.Model):
     programslot = models.ForeignKey(ProgramSlot, related_name='timeslots', verbose_name=_("Program slot"))
-    start = models.DateTimeField(_("Start time"), unique=True)
+    start = models.DateTimeField(_("Start time")) # Removed 'unique=True' because new Timeslots need to be created before deleting the old ones (otherwise linked notes get deleted first)
     end = models.DateTimeField(_("End time"))
     show = models.ForeignKey(Show, editable=False, related_name='timeslots')
 
@@ -472,6 +537,12 @@ class TimeSlot(models.Model):
     def save(self, *args, **kwargs):
         self.show = self.programslot.show
         super(TimeSlot, self).save(*args, **kwargs)
+        return self;
+
+    def generate(self, **kwargs):
+        """Returns the object instance without saving"""
+        self.show = self.programslot.show
+        return self;
 
     def get_absolute_url(self):
         return reverse('timeslot-detail', args=[str(self.id)])

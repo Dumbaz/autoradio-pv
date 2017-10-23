@@ -1,10 +1,12 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.contrib import admin
 from django.utils.translation import ugettext_lazy as _
+from django.shortcuts import render
 
-from .models import BroadcastFormat, MusicFocus, ShowInformation, ShowTopic, Host, Note, ProgramSlot, Show, TimeSlot
-from .forms import MusicFocusForm
+from .models import BroadcastFormat, MusicFocus, ShowInformation, ShowTopic, Host, Note, RRule, ProgramSlot, Show, TimeSlot
+from .forms import MusicFocusForm, CollisionForm
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 
 class ActivityFilter(admin.SimpleListFilter):
@@ -104,6 +106,10 @@ class NoteAdmin(admin.ModelAdmin):
         obj.save()
 
 
+class TimeSlotAdmin(admin.ModelAdmin):
+    model = TimeSlot
+    template_name = 'calendar.html'
+
 class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
     ordering = ('-end',)
@@ -138,7 +144,7 @@ class ProgramSlotAdmin(admin.ModelAdmin):
 
 class ProgramSlotInline(admin.TabularInline):
     model = ProgramSlot
-    ordering = ('-until',)
+    ordering = ('pk', '-until', 'byweekday')
 
 
 class ShowAdmin(admin.ModelAdmin):
@@ -155,6 +161,11 @@ class ShowAdmin(admin.ModelAdmin):
         'musicfocus',
     )
 
+    class Media:
+        from django.conf import settings
+        media_url = getattr(settings, 'MEDIA_URL')
+        js = [ media_url + 'js/show_change.js',]
+
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         try:
             show_id = int(request.get_full_path().split('/')[-2])
@@ -166,11 +177,286 @@ class ShowAdmin(admin.ModelAdmin):
 
         return super(ShowAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
+
+    def save_formset(self, request, form, formset, change):
+        """
+        Is called after the "save show"-form or collision-form were submitted
+
+        Saves the show after first submit
+
+        If any changes in programslots happend
+          * added/changed programslots are used to generate new timeslots and
+            matched against existing ones, which will be displayed in the collision form
+
+        If a collision form was submitted
+          * save the current programslot
+          * delete/create timeslots and relink notes after confirmation
+
+        Each step passes on to response_add or response_change which will
+          * either display the collision form for the next step
+          * or redirect to the original show-form if the resolving process has been finished
+            (= if either max_steps was surpassed or end_reached was True)
+        """
+
+        self.end_reached = False
+
+        programslot_instances = formset.save(commit=False)
+
+        # If there are no programslots to save, do nothing
+        if programslot_instances:
+            show_id = programslot_instances[0].show.id
+        else:
+            self.end_reached = True
+
+        programslot = []
+        timeslots = []
+
+        max_steps = int(len(programslot_instances)) if len(programslot_instances) > 0 else 1
+        step = 1
+
+        if request.POST.get('step') == None:
+            # First save-show submit
+
+            # Save show data only
+            form.save();
+
+            # Delete programslots (as well as related timeslots and notes) if flagged as such
+            for obj in formset.deleted_objects:
+                obj.delete()
+
+            # If nothing else changed, do nothing and redirect to show-form
+            if not formset.changed_objects and not formset.new_objects:
+                self.end_reached = True
+
+        else:
+            # If a collision form was submitted
+
+            step = int(request.POST.get('step'))
+
+            if request.POST.get('num_inputs') != None and int(request.POST.get('num_inputs')) > 0:
+                print("Resolving conflicts...")
+
+                '''Declare and retrieve variables'''
+
+                # Either datetimes as string (e.g. '2017-01-01 00:00:00 - 2017-01-01 01:00:00') to create
+                # or ints of colliding timeslots to keep otherwise
+                resolved_timeslots = []
+
+                # IDs of colliding timeslots found in the db. If there's no corresponding collision to the
+                # same index in create_timeslot, value will be None
+                collisions = []
+
+                # Datetimes as string (e.g. '2017-01-01 00:00:00 - 2017-01-01 01:00:00') for timeslots to create
+                create_timeslots = []
+
+                # IDs of timeslots to delete
+                delete_timeslots = set()
+
+                # Number of timeslots to be generated
+                num_inputs = int(request.POST.get('num_inputs'))
+
+                # Numbers of notes to relink for existing timeslots and newly created ones
+                # each of them relating to one of these POST vars:
+                #   POST.ntids[idx][id] and POST.ntids[idx][note_id] contain ids of existing timeslots and note_ids to link, while
+                #   POST.ntind[idx][id] and POST.ntind[idx][note_id] contain indices of corresponding elements in create_timeslots
+                #     and note_ids which will be linked after they're created and thus split into two lists beforehand
+                num_ntids = int(request.POST.get('num_ntids'))
+                num_ntind = int(request.POST.get('num_ntind'))
+
+                # Retrieve POST vars of current programslot
+                programslot_id = int(request.POST.get('ps_save_id')) if request.POST.get('ps_save_id') != 'None' else None
+                rrule = RRule.objects.get(pk=int(request.POST.get('ps_save_rrule_id')))
+                show = Show.objects.get(pk=show_id)
+                byweekday = int(request.POST.get('ps_save_byweekday'))
+                tstart = datetime.strptime(request.POST.get('ps_save_tstart'), '%H:%M').time()
+                tend = datetime.strptime(request.POST.get('ps_save_tend'), '%H:%M').time()
+                dstart = datetime.strptime(request.POST.get('ps_save_dstart'), '%Y-%m-%d').date()
+                if dstart < datetime.today().date(): # Create or delete upcoming timeslots only
+                    dstart = datetime.today().date()
+                until = datetime.strptime(request.POST.get('ps_save_until'), '%Y-%m-%d').date()
+                is_repetition = request.POST.get('ps_save_is_repetition')
+                automation_id = int(request.POST.get('ps_save_automation_id')) if request.POST.get('ps_save_automation_id') != 'None' else 0
+
+                # Put timeslot POST vars into lists with same indices
+                for i in range(num_inputs):
+                    resolved_ts = request.POST.get('resolved_timeslots[' + str(i) + ']')
+                    if resolved_ts != None:
+                        resolved_timeslots.append( resolved_ts )
+                        create_timeslots.append( request.POST.get('create_timeslots[' + str(i) + ']') ) # May contain None
+                        collisions.append( request.POST.get('collisions[' + str(i) + ']') ) # May contain None
+                    else:
+                        num_inputs -= 1
+
+
+                '''Prepare resolved timeslots'''
+
+                # Separate timeslots to delete from those to create
+                keep_collisions = []
+                for x in range(num_inputs):
+                    if resolved_timeslots[x] == None or resolved_timeslots[x].isdigit():
+                        # If it's a digit, keep the existing timeslot by preventing the new one from being created
+                        create_timeslots[x] = None
+                        keep_collisions.append(int(collisions[x]))
+                    else:
+                        # Otherwise collect the timeslot ids to be deleted later
+                        if len(collisions[x]) > 0:
+                            delete_timeslots.add(int(collisions[x]))
+
+                # Collect IDs of upcoming timeslots of the same schedule to delete except those in keep_collision
+                if programslot_id != None:
+                    for ts in TimeSlot.objects.filter(start__gte=dstart,end__lte=until,programslot_id=programslot_id).exclude(pk__in=keep_collisions).values_list('id', flat=True):
+                        delete_timeslots.add(ts)
+
+
+                '''Save programslot'''
+
+                new_programslot = ProgramSlot(pk=programslot_id,
+                                              rrule=rrule,
+                                              byweekday=byweekday,
+                                              show=show,
+                                              dstart=dstart,
+                                              tstart=tstart,
+                                              tend=tend,
+                                              until=until,
+                                              is_repetition=is_repetition,
+                                              automation_id=automation_id)
+
+                # Only save programslot if any timeslots changed
+                if len(resolved_timeslots) > 0:
+                    new_programslot.save()
+
+
+                '''Relink notes to existing timeslots and prepare those to be linked'''
+
+                # Relink notes with existing timeslot ids
+                for i in range(num_ntids):
+                    try:
+                        note = Note.objects.get(pk=int(request.POST.get('ntids[' +  str(i) + '][note_id]')))
+                        note.timeslot_id = int(request.POST.get('ntids[' + str(i) + '][id]'))
+                        note.save(update_fields=["timeslot_id"])
+                        print("Rewrote note " + str(note.id) + "...to timeslot_id " + str(note.timeslot_id))
+                    except ObjectDoesNotExist:
+                        pass
+
+                # Put list indices of yet to be created timeslots and note_ids in corresponding lists to relink them during creation
+                note_indices = []
+                note_ids = []
+                for i in range(num_ntind):
+                    note_indices.append( int(request.POST.get('ntind[' + str(i) + '][id]')) )
+                    note_ids.append( int(request.POST.get('ntind[' +  str(i) + '][note_id]')) )
+
+
+                '''Database changes for resolved timeslots and relinked notes for newly created'''
+
+                for idx, ts in enumerate(create_timeslots):
+                    if ts != None:
+                        start_end = ts.split(' - ')
+                        # Only create upcoming timeslots
+                        if datetime.strptime(start_end[0], "%Y-%m-%d %H:%M:%S") > datetime.today():
+                            timeslot_created = TimeSlot.objects.create(programslot=new_programslot, start=start_end[0], end=start_end[1])
+
+                            # Link a note to the new timeslot
+                            if idx in note_indices:
+                                note_idx = note_indices.index( idx ) # Get the note_id's index...
+                                note_id = note_ids[note_idx] # ...which contains the note_id to relate to
+
+                                try:
+                                    note = Note.objects.get(pk=note_id)
+                                    note.timeslot_id = timeslot_created.id
+                                    note.save(update_fields=["timeslot_id"])
+                                    print("Timeslot " + str(timeslot_created.id) + " linked to note " + str(note_id))
+                                except ObjectDoesNotExist:
+                                    pass
+
+                # Finally delete discarded timeslots
+                for timeslot_id in delete_timeslots:
+                    TimeSlot.objects.filter(pk=timeslot_id).delete()
+
+
+        if step > max_steps:
+            self.end_reached = True
+
+
+        '''
+        Everything below here is called when a new collision is loaded before being handed over to the client
+        '''
+
+        # Generate timeslots from current programslot
+        k = 1
+        for instance in programslot_instances:
+            if isinstance(instance, ProgramSlot):
+                if k == step:
+                    timeslots = ProgramSlot.generate_timeslots(instance)
+                    programslot = instance
+                    break
+                k += 1
+
+        # Get collisions for timeslots
+        collisions = ProgramSlot.get_collisions(timeslots)
+
+        # Get notes of colliding timeslots
+        notes = []
+        for id in collisions:
+            try:
+                notes.append( Note.objects.get(timeslot_id=id) )
+            except ObjectDoesNotExist:
+                pass
+
+        self.programslot = programslot
+        self.timeslots = timeslots
+        self.collisions = collisions
+        self.num_collisions = len([ s for s in self.collisions if s != None]) # Number of real collisions displayed to the user
+        self.notes = notes
+        self.showform = form
+        self.programslotsform = formset
+        self.step = step + 1 # Becomes upcoming step
+        self.max_steps = max_steps
+
+        # Pass it on to response_add() or response_change()
+        return self
+
+
+    def response_add(self, request, obj):
+        return ShowAdmin.respond(self, request, obj)
+
+
+    def response_change(self, request, obj):
+        return ShowAdmin.respond(self, request, obj)
+
+
+    def respond(self, request, obj):
+        """
+        Redirects to the show-change-form if no programslots changed or resolving has been finished (or any other form validation error occured)
+        Displays the collision form for the current programslot otherwise
+        """
+
+        if self.end_reached:
+            return super(ShowAdmin, self).response_change(request, obj)
+
+        timeslots_to_collisions = list(zip(self.timeslots, self.collisions))
+
+        # myform = CollisionForm(self.timeslots, self.collisions)
+
+        return render(request, 'collisions.html', {'self' : self, 'obj': obj, 'request': request,
+                                                   'timeslots': self.timeslots,
+                                                   'collisions': self.collisions,
+                                                   'programslot': self.programslot,
+                                                   'timeslots_to_collisions': timeslots_to_collisions,
+                                                   'programslotsform': self.programslotsform,
+                                                   'showform': self.showform,
+                                                   'num_inputs': len(self.timeslots),
+                                                   'step': self.step,
+                                                   'max_steps': self.max_steps,
+                                                   'now': datetime.now(),
+                                                   'num_collisions': self.num_collisions})
+
+
 admin.site.register(BroadcastFormat, BroadcastFormatAdmin)
 admin.site.register(MusicFocus, MusicFocusAdmin)
 admin.site.register(ShowInformation, ShowInformationAdmin)
 admin.site.register(ShowTopic, ShowTopicAdmin)
 admin.site.register(Host, HostAdmin)
 admin.site.register(Note, NoteAdmin)
-admin.site.register(ProgramSlot, ProgramSlotAdmin)
+#admin.site.register(ProgramSlot, ProgramSlotAdmin)
+#admin.site.register(TimeSlot, TimeSlotAdmin)
 admin.site.register(Show, ShowAdmin)

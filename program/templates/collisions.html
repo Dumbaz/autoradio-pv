@@ -1,0 +1,297 @@
+<!doctype html>
+<html>
+<head>
+    <title>Teste nach Terminkollisionen</title>
+    <link rel="stylesheet" href="/program/styles.css" type="text/css" />
+    <link rel="stylesheet" href="/static/admin/css/base.css" type="text/css" />
+    <script type="text/javascript" src="/site_media/js/jquery/jquery.js"></script>
+    <script type="text/javascript" src="/site_media/js/jquery/ui/core.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/jquery/ui/widget.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/jquery/ui/mouse.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/jquery/ui/draggable.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/jquery/ui/droppable.min.js"></script>
+</head>
+<body>
+
+<div id="container">
+
+  <div id="header">Timeslots (Schritt {{ step|add:"-1" }} / {{ max_steps }})</div>
+  <div class="breadcrumb"></div>
+
+  <div id="content">
+
+  <h1>Termine &amp; Kollisionen</h1>
+
+    <div id="content-main">
+
+      <strong>{{ programslot.show }}</strong>
+      <p>{{ programslot }}</p>
+      <p>
+        {{ timeslots|length }} Timeslots generiert.
+        {% if self.num_collisions > 0 %}
+           Davon kollidieren {{ self.num_collisions }}.
+        {% endif %}
+      </p>
+
+      <form id="collisions_form" action="/admin/program/show/{{ programslot.show_id }}/change/" enctype="multipart/form-data" method="post">
+      {% csrf_token %}
+
+        <table class="table">
+        <thead>
+          <tr>
+            <th class="table-head">Gew&uuml;nschter Termin <span class="check-all projected">&#10003;</span> </th>
+            <th class="table-head"><span class="check-all collision">&#10003;</span> kollidiert mit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for timeslot, collision in timeslots_to_collisions %}
+            {% if timeslot.start|date:"U" < now|date:"U" %}
+              <tr class="table-row past" id="row-{{ forloop.counter0 }}">
+                <td class="table-cell">
+                  <label>
+                    <span class="timeslot-date">{{ timeslot.start|date:"D, d.m. Y "}}</span>
+                    <span class="timeslot-time">{{ timeslot.start|date:"H:i"}} - {{ timeslot.end|date:"H:i" }} Uhr</span>
+                  </label>
+                </td>
+                <td class="table-cell">
+                  <label>
+                    <input type="radio" name="resolved_timeslots[{{ forloop.counter0 }}]" value="{{ collision.id }}" id="collision-{{ forloop.counter0 }}" checked="checked" style="display:none;" />
+                    <span>Timeslot liegt in der Vergangenheit</span>
+                  </label>
+                </td>
+              </tr>
+            {% else %}
+
+              {% if collision != None %}
+              <tr class="table-row" id="row-{{ forloop.counter0 }}">
+                <td class="table-cell projected keep" timeslot_index="{{ forloop.counter0 }}">
+                  <div class="droppable">
+                  <label for="timeslot-{{ forloop.counter0 }}" class="noselect">
+                    <input type="radio" name="resolved_timeslots[{{ forloop.counter0 }}]" value="{{ timeslot.start|date:"Y-m-d H:i:s"}} - {{ timeslot.end|date:"Y-m-d H:i:s" }}" checked="checked" id="timeslot-{{ forloop.counter0 }}" />
+                    <span>
+                      <span class="timeslot-date">{{ timeslot.start|date:"D, d.m. Y "}}</span>
+                      <span class="timeslot-time">{{ timeslot.start|date:"H:i"}} - {{ timeslot.end|date:"H:i" }} Uhr</span>
+                    </span>
+                  </label>
+                  </div>
+                </td>
+                <td class="table-cell collision remove" timeslot_id="{{ collision.id }}">
+                  <div class="droppable">
+                  <label for="collision-{{ forloop.counter0 }}" class="noselect">
+                    <input type="radio" name="resolved_timeslots[{{ forloop.counter0 }}]" value="{{ collision.id }}" id="collision-{{ forloop.counter0 }}" />
+                    <span>
+                      <span class="timeslot-date">{{ collision.start|date:"D, d.m. Y"}}</span>
+                      <span class="timeslot-time">{{ collision.start|date:"H:i"}} - {{ collision.end|date:"H:i" }} Uhr</span>
+                      <span class="timeslot-show">{{ collision.show }}</span>
+                    </span>
+                  </label>
+                  </div>
+                  {% for note in self.notes %}
+                    {% if collision.id == note.timeslot_id %}
+                    <div id="collision-note-{{ forloop.counter0 }}" class="collision-note draggable" note_id="{{ note.id }}">
+                      <strong>Note: {{ note.title }}</strong>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+
+                </td>
+              </tr>
+              {% else %}
+              <tr class="table-row projected keep">
+                <td class="table-cell projected" timeslot_index="{{ forloop.counter0 }}">
+                  <div class="droppable">
+                  <label for="timeslot-{{ forloop.counter0 }}" class="noselect">
+                      <span class="timeslot-date">{{ timeslot.start|date:"D, d.m. Y "}}</span>
+                      <span class="timeslot-time">{{ timeslot.start|date:"H:i"}} - {{ timeslot.end|date:"H:i" }} Uhr</span>
+                      <span>&#10003;</span>
+                  </label>
+                  <input type="radio" name="resolved_timeslots[{{ forloop.counter0 }}]" value="{{ timeslot.start|date:"Y-m-d H:i:s"}} - {{ timeslot.end|date:"Y-m-d H:i:s" }}" checked="checked" />
+                  </div>
+                </td>
+                <td class="table-cell projected">
+                  <label>nichts</label>
+                </td>
+              </tr>
+              {% endif %}
+
+            {% endif %}
+          {% endfor %}
+        </tbody>
+        </table>
+
+        {% for timeslot in timeslots %}
+          <input type="hidden" name="create_timeslots[{{ forloop.counter0 }}]" value="{{ timeslot.start|date:"Y-m-d H:i:s"}} - {{ timeslot.end|date:"Y-m-d H:i:s" }}" />
+        {% endfor %}
+
+        {% for collision in collisions %}
+          <input type="hidden" name="collisions[{{ forloop.counter0 }}]" value="{{ collision.id}}" />
+        {% endfor %}
+
+        <input type="hidden" name="ps_save_id" value="{{ programslot.id }}" />
+        <input type="hidden" name="ps_save_rrule_id" value="{{ programslot.rrule_id }}" />
+        <input type="hidden" name="ps_save_byweekday" value="{{ programslot.byweekday }}" />
+        <input type="hidden" name="ps_save_dstart" value="{{ programslot.dstart|date:"Y-m-d" }}" />
+        <input type="hidden" name="ps_save_tstart" value="{{ programslot.tstart }}" />
+        <input type="hidden" name="ps_save_tend" value="{{ programslot.tend }}" />
+        <input type="hidden" name="ps_save_until" value="{{ programslot.until|date:"Y-m-d" }}" />
+        <input type="hidden" name="ps_save_is_repetition" value="{{ programslot.is_repetition }}" />
+        <input type="hidden" name="ps_save_automation_id" value="{{ programslot.automation_id }}" />
+        <input type="hidden" name="ps_save_show_id" value="{{ programslot.show_id }} " />
+        <input type="hidden" name="num_inputs" value="{{ num_inputs }}" />
+        <input type="hidden" name="step" value="{{ step }}" />
+
+        <input type="hidden" name="num_ntind" value="0" id="ntind-num" />
+        <input type="hidden" name="num_ntids" value="0" id="ntids-num" />
+
+        <!-- Linking notes to timeslots that will be created -->
+        <div id="ntind"></div>
+
+        <!-- Linking notes to already existing timeslots -->
+        <div id="ntids"></div>
+
+        <div class="submit-row">
+          <input class="default" type="submit" name="_continue" value="Speichern" />
+          <p class="deletelink-box"><a href="/admin/program/show/{{ obj.id }}/change" class="deletelink">Abbrechen und &Auml;nderungen verwerfen</a></p>
+        </div>
+
+        <div style="display:none;">
+         {{ programslotsform }}
+         {{ showform }}
+        </div>
+
+      </form>
+
+    </div> <!-- /#content-main -->
+
+  </div> <!-- /#content -->
+
+</div> <!-- /#container -->
+
+<script type="text/javascript">
+
+jQuery(document).ready( function() {
+
+  /* Change classes if a timeslot or collision checked */
+  jQuery(document).on( 'click', 'input[name^="resolved_timeslots"]', function() {
+     var row_id = jQuery(this).closest('.table-row').attr('id');
+
+     if( jQuery(this).closest('.table-cell').hasClass('projected') ) {
+        jQuery('#' + row_id + ' .projected').removeClass('remove').addClass('keep');
+        jQuery('#' + row_id + ' .collision').removeClass('keep').addClass('remove');
+     } else {
+        jQuery('#' + row_id + ' .projected').removeClass('keep').addClass('remove');
+        jQuery('#' + row_id + ' .collision').removeClass('remove').addClass('keep');
+     }
+  });
+
+  /* Select a column (all projected timeslots or all collisions */
+  /* TODO: Not working */
+  jQuery(document).on( 'click', '.check-all', function() {
+
+     if( jQuery(this).hasClass('projected') ) {
+        jQuery('.projected input[name^="resolved_timeslots"]').attr('checked', 'checked');
+        jQuery('.collision input[name^="resolved_timeslots"]').removeAttr('checked');
+
+        console.log("check all projected");
+     }
+
+     if( jQuery(this).hasClass('collision') ) {
+        jQuery('.collision input[name^="resolved_timeslots"]').attr('checked', 'checked');
+        jQuery('.projected input[name^="resolved_timeslots"]').removeAttr('checked');
+        console.log("check all collisions");
+     }
+
+  });
+
+});
+
+  var ntind = []
+  var ntids = []
+
+  /* Redraws hidden inputs when a note was dropped to a timeslot */
+  function drawInputs(nts, name) {
+    jQuery('#' + name).html('');
+
+    for(index = 0; index < nts.length; ++index) {
+      jQuery('#' + name).append('<input type="hidden" name="' + name + '[' + index + '][id]" value="' + nts[index].id + '" />');
+      jQuery('#' + name).append('<input type="hidden" name="' + name + '[' + index + '][note_id]" value="' + nts[index].note_id + '" />');
+    }
+  }
+
+
+  /* The draggable note */
+  jQuery( function() {
+    jQuery( ".draggable" ).draggable({
+      revert: 'invalid',
+      snap: '.droppable',
+      snapMode: 'inner',
+      cursor: 'move',
+      drag: function() {
+      },
+      stop: function() {
+      }
+    });
+
+
+    /**
+     * When a note was dropped onto a timelost
+     * regenerate note/timeslot arrays for indices and ids and call drawInputs()
+     */
+    jQuery( ".droppable" ).droppable({
+      classes: {
+        "ui-droppable-active": "ui-state-active",
+        "ui-droppable-hover": "ui-state-hover"
+      },
+      drop: function( event, ui ) {
+        jQuery(this).parent("td").append( jQuery(ui.draggable).css({"top": 0, "left": 0 }) );
+
+        var note_id = jQuery(ui.draggable).attr("note_id");
+
+        if( jQuery(this).parent("td").hasClass("projected") ) {
+           // Dropped onto the left column
+
+           var ts_index = jQuery(this).parent("td").attr("timeslot_index");
+
+           // Remove note id from arrays if already existing
+           ntind = jQuery.grep(ntind, function(e){
+              return e.note_id != note_id;
+           });
+
+           ntids = jQuery.grep(ntind, function(e){
+              return e.note_id != note_id;
+           });
+
+           ntind.push({"id": ts_index, "note_id": note_id});
+
+        } else {
+           // Dropped onto the right column
+
+           var ts_id = jQuery(this).parent("td").attr("timeslot_id");
+
+           // Remove not id from arrays if already existing
+           ntids = jQuery.grep(ntind, function(e){
+              return e.note_id != note_id;
+           });
+
+           ntind = jQuery.grep(ntind, function(e){
+              return e.note_id != note_id;
+           });
+
+           ntids.push({"id": ts_id, "note_id": note_id});
+
+        }
+
+        jQuery("#ntind-num").val(ntind.length);
+        jQuery("#ntids-num").val(ntids.length);
+
+        drawInputs(ntind, "ntind");
+        drawInputs(ntids, "ntids");
+
+      }
+    });
+  } );
+
+</script>
+
+</body>
+</html>

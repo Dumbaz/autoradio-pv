@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+    <title>Kalender</title>
+    <link rel="stylesheet" href="/program/styles.css" type="text/css" />
+    <link rel="stylesheet" href="/static/admin/css/base.css" type="text/css" />
+    <!--<link rel="stylesheet" href="/static/admin/css/forms.css" type="text/css" />-->
+    <link rel="stylesheet" href="/site_media/js/calendar/lib/cupertino/jquery-ui.min.css" type="text/css" media="all" />
+    <link rel="stylesheet" href="/site_media/js/calendar/fullcalendar.min.css" type="text/css" media="all" />
+
+    <script type="text/javascript" src="/site_media/js/jquery/jquery.js"></script>
+    <script type="text/javascript" src="/site_media/js/calendar/lib/moment.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/calendar/fullcalendar.min.js"></script>
+    <script type="text/javascript" src="/site_media/js/calendar/locale-all.js"></script>
+
+    <style type="text/css">
+    /* Calendar Screen */
+
+    /* Sidebar */
+    #sidebar {
+      width:calc( 20% - 40px );
+      position:fixed;
+      top:0px;
+      bottom:0;
+      right:0;
+      padding:10px 30px;
+      background-color:#eee;
+    }
+
+    #calendar {
+      width:calc( 80% - 40px );
+      float:left;
+    }
+
+    /* Notification popup */
+    #notification {
+      display:none;
+      z-index:9999999;
+      position:fixed;
+      width:300px;
+      left:50%;
+      margin-left:-150px;
+      top:33%;
+      padding: 40px 0px 40px 0px;
+      -moz-box-shadow:0px 0px 5px 1px #ccc;
+      -webkit-box-shadow:0px 0px 5px 1px #ccc;
+      box-shadow:0px 0px 5px 1px #ccc;
+      background-color:#FFFBCC;
+      text-align:center;
+      vertical-align:middle;
+      font-size:1.5em;
+      font-weight:bold;
+    }
+
+    /* Close button for each event */
+    .closeon {
+       display:none; /* Visibility is triggered by mouseover/mouseout */
+       position:absolute;
+       right:0;
+       top:0;
+       padding: 1px 4px;
+       border: 1px solid #000;
+       background: #fff;
+       opacity: .5;
+       color: black;
+       border-radius: 10px;
+       font-size:.8em;
+    }
+
+    </style>
+
+</head>
+<body>
+<div id="notification"></div>
+
+<div id="container">
+
+  <div id="header">Kalender</div>
+  <div class="breadcrumb"></div>
+
+  <div id="content">
+
+    <h1></h1>
+
+    <div class="calendar-container">
+      <div id="sidebar">&nbsp;</div>
+      <div id="calendar"></div>
+    </div>
+
+  </div>
+
+</div>
+
+    <script>
+
+    /* Displays a message to the user after receiving an AJAX response */
+    function notify(msg) {
+    	var notify = jQuery("#notification");
+    	notify.html(msg);
+    	notify.show();
+    	notify.fadeOut(2000);
+    }
+
+
+    jQuery(document).ready( function() {
+
+       jQuery("#calendar").fullCalendar({
+          // Enable theme
+          theme: true,
+          timezone: 'Europe/Berlin',
+          locale: 'de', // TODO: make an option for that
+          defaultView: 'agendaWeek',
+          // Event dragging & resizing
+          editable: true,
+          // Header
+          header: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'agendaWeek,agendaDay'
+          },
+          weekNumberCalculation: 'ISO', // Week begins with Monday
+          firstDay: 1, // Week begins with Monday
+          events: '/export/week_schedule',
+          eventRender: function(event, element) {
+             element.find('.fc-content').append( '<span class="closeon">X</span>' );
+             element.find('.closeon').click(function() {
+                // Confirm
+                if( ! confirm( "Wollen Sie diese Episode wirklich löschen?" ) )
+                   return false;
+
+                // Delete from database
+                jQuery.post( '/program/calendar/', { 'action': 'delete_timeslot', 'id': event._id } )
+                .done(function( data ) {
+                   // Remove element from DOM
+                   jQuery('#calendar').fullCalendar('removeEvents', event._id );
+                   notify( 'Episode gel&ouml;scht.' );
+                   console.log(data.result);
+                })
+                .fail(function( data ) {
+                   notify( data.result );
+                });
+
+             });
+          },
+          // Triggered when the user mouses over an event.
+          eventMouseover: function( event, jsEvent, view ) {
+             jQuery(this).find('.closeon').show();
+          },
+          // Triggered when the user mouses out an event.
+          eventMouseout: function( event, jsEvent, view ) {
+             jQuery(this).find('.closeon').hide();
+          },
+          // Triggered when an event was clicked
+          eventClick: function(calEvent, jsEvent, view) {
+          	console.log(calEvent);
+          },
+          // How is this callback triggered?
+          select: function( start, end, jsEvent, view ) {
+             console.log("Selected: " + start + " - " + end );
+          },
+          // Triggered when event dragging stops - BUT BEFORE data was updated
+          /*   eventDragStop: function( event, jsEvent, ui, view ) {
+             updateTimeslot( event );
+          }, */
+          // Triggered when resizing stops and the event has changed in duration.
+          eventResize: function( event, jsEvent, ui, view ) {
+             updateTimeslot( event );
+          },
+          // Triggered when dragging stops and the event has moved to a different day/time.
+          eventDrop: function( event, delta, revertFunc, jsEvent, ui, view ) {
+          	 updateTimeslot( event );
+          }
+
+       });
+    });
+
+    function updateTimeslot( event ) {
+
+       var id = event.id;
+       // Use moment.utc() to avoid the offset being added to times
+       var date = moment.utc( event.start._d ).format('YYYY-MM-DD');
+       var start = moment.utc( event.start._d ).format('HH:mm') + ':00';
+       var stop = moment.utc( event.end._d ).format('HH:mm') + ':00';
+
+       console.log( event );
+       console.log( "program_id: " + event.id + " date: " + date + " start: " + start + " stop: " + stop );
+
+       jQuery.post( ajaxurl, { 'action': 'update_timeslot', 'id': id, 'date': date, 'start': start, 'stop' : stop } )
+       .done(function( data ) {
+          notify( '&Auml;nderungen gespeichert.' );
+          console.log(data.result);
+       })
+       .fail(function( data ) {
+          notify( data.result );
+       });
+
+    }
+
+    </script>
+
+</body>
+</html>

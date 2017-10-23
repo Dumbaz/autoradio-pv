@@ -13,6 +13,10 @@ from .models import BroadcastFormat, MusicFocus, Note, Show, ShowInformation, Sh
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
 
+class CalendarView(TemplateView):
+    template_name = 'calendar.html'
+
+
 class HostListView(ListView):
     context_object_name = 'host_list'
     queryset = Host.objects.filter(Q(is_always_visible=True) | Q(shows__programslots__until__gt=datetime.now())).distinct()
@@ -201,6 +205,43 @@ def json_day_schedule(request, year=None, month=None, day=None):
             'end': ts.end.strftime('%Y-%m-%d_%H:%M:%S'),
             'title': ts.show.name,
             'id': ts.show.id,
+            'automation-id': -1
+        }
+
+        if ts.programslot.automation_id:
+            entry['automation-id'] = ts.programslot.automation_id
+
+        schedule.append(entry)
+
+    return HttpResponse(json.dumps(schedule, ensure_ascii=False).encode('utf8'),
+                        content_type="application/json; charset=utf-8")
+
+
+def json_week_schedule(request):
+    """
+    Called by calendar to get all timeslots for a week.
+    Expects GET variable 'start' (date), otherwise start will be today
+    """
+
+    start = request.GET.get('start')
+
+    if start == None:
+        start = datetime.combine(date.today(), time(0, 0))
+    else:
+        start = datetime.combine( datetime.strptime(request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
+
+    timeslots = TimeSlot.objects.get_7d_timeslots(start).select_related('programslot').select_related('show')
+    schedule = []
+    for ts in timeslots:
+
+        # TODO: Will be a field of timeslots in the future
+        is_repetition = ' (WH)' if ts.programslot.is_repetition == 1 else ''
+
+        entry = {
+            'start': ts.start.strftime('%Y-%m-%dT%H:%M:%S'),
+            'end': ts.end.strftime('%Y-%m-%dT%H:%M:%S'),
+            'title': ts.show.name + is_repetition,
+            'id': ts.id, #show.id,
             'automation-id': -1
         }
 

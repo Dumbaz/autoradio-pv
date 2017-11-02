@@ -8,7 +8,6 @@ from .forms import MusicFocusForm, CollisionForm
 
 from datetime import date, datetime, time, timedelta
 
-
 class ActivityFilter(admin.SimpleListFilter):
     title = _("Activity")
 
@@ -105,10 +104,6 @@ class NoteAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.save()
 
-
-class TimeSlotAdmin(admin.ModelAdmin):
-    model = TimeSlot
-    template_name = 'calendar.html'
 
 class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
@@ -405,7 +400,7 @@ class ShowAdmin(admin.ModelAdmin):
         self.programslot = programslot
         self.timeslots = timeslots
         self.collisions = collisions
-        self.num_collisions = len([ s for s in self.collisions if s != None]) # Number of real collisions displayed to the user
+        self.num_collisions = len([ s for s in self.collisions if s != 'None']) # Number of real collisions displayed to the user
         self.notes = notes
         self.showform = form
         self.programslotsform = formset

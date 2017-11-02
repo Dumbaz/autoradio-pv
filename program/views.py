@@ -2,11 +2,14 @@ import json
 from datetime import date, datetime, time, timedelta
 
 from django.db.models import Q
-from django.http import HttpResponse
+from django.core.exceptions import ObjectDoesNotExist
+from django.forms.models import model_to_dict
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from pprint import pprint
 
 from .models import BroadcastFormat, MusicFocus, Note, Show, ShowInformation, ShowTopic, TimeSlot, Host
 
@@ -278,3 +281,11 @@ def json_timeslots_specials(request):
 
     return HttpResponse(json.dumps(specials, ensure_ascii=False).encode('utf8'),
                         content_type="application/json; charset=utf-8")
+
+
+def json_get_timeslot(request):
+   if request.method == 'GET':
+      try:
+         return JsonResponse( model_to_dict(TimeSlot.objects.select_related('programslot').select_related('show').get(pk=int(request.GET.get('timeslot_id')))))
+      except ObjectDoesNotExist:
+         return JsonResponse( list('Error') );

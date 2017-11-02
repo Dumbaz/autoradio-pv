@@ -74,7 +74,7 @@
 <div id="notification"></div>
 
 <div id="container">
-
+  {% csrf_token %}
   <div id="header">Kalender</div>
   <div class="breadcrumb"></div>
 
@@ -83,8 +83,13 @@
     <h1></h1>
 
     <div class="calendar-container">
-      <div id="sidebar">&nbsp;</div>
       <div id="calendar"></div>
+      <div id="sidebar">
+        <div id="timeslot-id"></div>
+        <div id="timeslot-start"></div>
+        <div id="timeslot-end"></div>
+        <div id="response-message"></div>
+      </div>
     </div>
 
   </div>
@@ -151,8 +156,29 @@
              jQuery(this).find('.closeon').hide();
           },
           // Triggered when an event was clicked
+          // Load the timeslot into the sidebar form
           eventClick: function(calEvent, jsEvent, view) {
           	console.log(calEvent);
+            jQuery.ajax({
+              url: '/export/get_timeslot',
+              type: 'GET',
+              data: {
+                'timeslot_id': calEvent.id,
+                'csrfmiddlewaretoken': jQuery('input[name="csrfmiddlewartetoken"]').val()
+              },
+              success: function(timeslot) {
+                jQuery("#timeslot-id").html(timeslot.id);
+                jQuery("#timeslot-start").html(timeslot.start);
+                jQuery("#timeslot-end").html(timeslot.end);
+                jQuery("#response-message").html("Success");
+              },
+              error: function() {
+                jQuery("#response-message").html("An error occured");
+              }
+
+            });
+
+
           },
           // How is this callback triggered?
           select: function( start, end, jsEvent, view ) {

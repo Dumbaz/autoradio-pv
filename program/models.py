@@ -281,7 +281,7 @@ class RRule(models.Model):
         (5, _("Fifth")),
         (-1, _("Last")),
     )
-    name = models.CharField(_("Name"), max_length=32, unique=True) # ,default=1
+    name = models.CharField(_("Name"), max_length=32, unique=True)
     freq = models.IntegerField(_("Frequency"), choices=FREQ_CHOICES)
     interval = models.IntegerField(_("Interval"), default=1)
     bysetpos = models.IntegerField(_("Set position"), blank=True,
@@ -344,45 +344,15 @@ class ProgramSlot(models.Model):
     def generate_timeslots(programslot):
         """
         Returns a list of timeslot objects based on a programslot and its rrule
-        Returns past timeslots starting from dstart (not today)
-
-          TODO for ENDING TIMES:
-
-          1. If rrule is 'on even or odd calendar weeks' and a timeslot lasts from SUN 23:00 - MON 00:00,
-          the end date will be in the next week, which is excluded by byweekno. Thus the end date will be in the week _after next_.
-
-          2. If rrule is 'on business days' and a timeslot lasts from FRI 23:00 - SAT 00:00,
-          the end date will be on a weekday, which is excluded by byweekday_end (and actually returns the next week-1day, which is quite unexpected)
-
-          Solution:
-            - Correct those end-dates or find a better way to formulate rrule()
-              - Either determine byweekno for ends beforehand for that case (when byweekday_end is determined)
-              - Check if combinations of dend, byweekday_end, byweekno (or interval and bysetpos) might have something to do with the problem
+        Returns past timeslots as well starting from dstart (not today)
         """
 
         byweekno = None
+        byweekno_end = None
         byweekday_end = int(programslot.byweekday)
         starts = []
         ends = []
         timeslots = []
-
-        if programslot.rrule.freq == 0: # Ignore weekdays for one-time timeslots
-            byweekday_start = None
-            byweekday_end = None
-        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 2: # Daily timeslots
-            byweekday_start = (0, 1, 2, 3, 4, 5, 6)
-            byweekday_end = (0, 1, 2, 3, 4, 5, 6)
-        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 3: # Business days MO - FR
-            byweekday_start = (0, 1, 2, 3, 4)
-            byweekday_end = (0, 1, 2, 3, 4)
-        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 7: # Even calendar weeks
-            byweekday_start = int(programslot.byweekday)
-            byweekno = list(range(2, 54, 2))
-        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 8: # Odd calendar weeks
-            byweekday_start = int(programslot.byweekday)
-            byweekno = list(range(1, 54, 2))
-        else:
-            byweekday_start = int(programslot.byweekday)
 
         # Handle ending weekday for timeslots over midnight
         if programslot.tend < programslot.tstart:
@@ -397,6 +367,38 @@ class ProgramSlot(models.Model):
         else:
             dend = programslot.dstart
 
+        if programslot.rrule.freq == 0: # Ignore weekdays for one-time timeslots
+            byweekday_start = None
+            byweekday_end = None
+        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 2: # Daily timeslots
+            byweekday_start = (0, 1, 2, 3, 4, 5, 6)
+            byweekday_end = (0, 1, 2, 3, 4, 5, 6)
+        elif programslot.rrule.freq == 3 and programslot.rrule.pk == 3: # Business days MO - FR/SA
+            byweekday_start = (0, 1, 2, 3, 4)
+            if programslot.tend < programslot.tstart:
+                # End days for over midnight
+                byweekday_end = (1, 2, 3, 4, 5)
+            else:
+                byweekday_end = (0, 1, 2, 3, 4)
+        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 7: # Even calendar weeks
+            byweekday_start = int(programslot.byweekday)
+            byweekno = list(range(2, 54, 2))
+            # Reverse ending weeks if from Sun - Mon
+            if byweekday_start == 6 and byweekday_end == 0:
+                byweekno_end = list(range(1, 54, 2))
+            else:
+                byweekno_end = byweekno
+        elif programslot.rrule.freq == 2 and programslot.rrule.pk == 8: # Odd calendar weeks
+            byweekday_start = int(programslot.byweekday)
+            byweekno = list(range(1, 54, 2))
+            # Reverse ending weeks if from Sun - Mon
+            if byweekday_start == 6 and byweekday_end == 0:
+                byweekno_end = list(range(2, 54, 2))
+            else:
+                byweekno_end = byweekno
+        else:
+            byweekday_start = int(programslot.byweekday)
+
         if programslot.rrule.freq == 0:
             starts.append(datetime.combine(programslot.dstart, programslot.tstart))
             ends.append(datetime.combine(dend, programslot.tend))
@@ -409,16 +411,18 @@ class ProgramSlot(models.Model):
                             bysetpos=programslot.rrule.bysetpos,
                             byweekday=byweekday_start,
                             byweekno=byweekno))
+
             ends = list(rrule(freq=programslot.rrule.freq,
                           dtstart=datetime.combine(dend, programslot.tend),
                           interval=programslot.rrule.interval,
                           until=programslot.until + relativedelta(days=+1),
                           bysetpos=programslot.rrule.bysetpos,
                           byweekday=byweekday_end,
-                          byweekno=byweekno))
+                          byweekno=byweekno_end))
 
-            for k in range(min(len(starts), len(ends))):
-                timeslots.append(TimeSlot(programslot=programslot, start=starts[k], end=ends[k]).generate())
+        for k in range(min(len(starts), len(ends))):
+            timeslots.append(TimeSlot(programslot=programslot, start=starts[k], end=ends[k]).generate())
+            print(str(starts[k]) + ' - ' + str(ends[k]))
 
         return timeslots
 
@@ -441,7 +445,7 @@ class ProgramSlot(models.Model):
                            ( Q(start__lte=ts.start) & Q(end__gte=ts.end) )
                         )
 
-            if(collision):
+            if collision:
                 collisions.append(collision[0]) # TODO: Do we really always retrieve one?
             else:
                 collisions.append(None)
@@ -509,7 +513,8 @@ class TimeSlotManager(models.Manager):
 
     @staticmethod
     def get_7d_timeslots(start):
-        end = start + timedelta(hours=168)
+        start = datetime.combine(start, time(0, 0))
+        end = start + timedelta(days=7)
 
         return TimeSlot.objects.filter(Q(start__lte=start, end__gte=start) |
                                        Q(start__gt=start, start__lt=end)).exclude(end=start)

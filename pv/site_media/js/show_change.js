@@ -28,6 +28,8 @@ function toggleSelects( select_elm ) {
 
 django.jQuery(document).ready( function() {
 
+   moment.locale("de");
+
  	/* Toggle selects dependent on rrule option on load */
    django.jQuery(".field-rrule select").each( function(i) {
       toggleSelects( django.jQuery(this) );
@@ -38,14 +40,67 @@ django.jQuery(document).ready( function() {
       toggleSelects( django.jQuery(this) )
    });
 
-	/* Set the until date to dstart if editing a programslot with freq 'once' */
+
    django.jQuery(document).on('blur', '.field-dstart input', function() {
 		var ps_id = django.jQuery(this).closest('tr').attr("id");
       var dstart = django.jQuery(this).val();
 
+      //django.jQuery(this).removeClass('validation-error');
+
+   	/* Set the until date to dstart if editing a programslot with freq 'once' */
 		if( django.jQuery('#id_' + ps_id + '-rrule option:selected').val() == 1 ) {
    		django.jQuery('#id_' + ps_id + '-until').show().val(dstart).hide();
    	}
+
+		/* Check if dstart is not in the past */
+      /*
+      if( dstart != '' ) {
+        console.log(moment(dstart, "DD.MM.YYYY").unix());
+        console.log(moment().unix());
+
+        if( moment(dstart, "DD.MM.YYYY").unix() <= moment().unix() ) {
+            alert('Startdatum darf nicht in der Vergangenheit liegen');
+            django.jQuery(this).addClass('validation-error');
+        }
+
+      }
+      */
+
+   });
+
+
+   django.jQuery(document).on('submit', '#show_form', function(e) {
+       django.jQuery('input').removeClass('validation-error');
+
+       django.jQuery('.field-until input').each( function() {
+
+           var until = django.jQuery(this).val();
+           var dstart = django.jQuery(this).closest('tr').find('.field-dstart input').val();
+           var until_timestamp =  moment(until, "DD.MM.YYYY") / 1000;
+           var dstart_timestamp = moment(dstart, "DD.MM.YYYY") / 1000;
+
+           if( until != '' && dstart != '') {
+               if( until_timestamp <= dstart_timestamp ) {
+                   e.preventDefault();
+                   alert('Enddatum darf nicht vor dem Startdatum liegen');
+                   django.jQuery(this).addClass('validation-error');
+               }
+
+           } else if( until == '' && dstart != '') {
+               e.preventDefault();
+               alert('Enddatum darf nicht leer sein');
+               django.jQuery(this).addClass('validation-error');
+           } else if( dstart == '' && until != '') {
+           	   e.preventDefault();
+           	   alert('Startdatum darf nicht leer sein');
+               django.jQuery(this).closest('tr').find('.field-dstart input').addClass('validation-error');
+           } else {
+               return;
+           }
+
+       });
+
+
    });
 
 });

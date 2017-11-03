@@ -159,7 +159,12 @@ class ShowAdmin(admin.ModelAdmin):
     class Media:
         from django.conf import settings
         media_url = getattr(settings, 'MEDIA_URL')
-        js = [ media_url + 'js/show_change.js',]
+        js = [ media_url + 'js/show_change.js',
+               media_url + 'js/calendar/lib/moment.min.js',
+             ]
+
+        css = { 'all': ('/program/styles.css',) }
+
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         try:

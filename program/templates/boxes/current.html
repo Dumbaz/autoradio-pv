@@ -12,8 +12,8 @@
             <table>
                 <tr class="previous">
                     <td class="start">{{ previous_timeslot.start|date:"H:i" }}</td>
-                    <td class="format bf-{{ previous_timeslot.show.broadcastformat.slug }}"
-                        title="{{ previous_timeslot.show.broadcastformat.format }}">&nbsp;</td>
+                    <td class="type ty-{{ previous_timeslot.show.type.slug }}"
+                        title="{{ previous_timeslot.show.type.type }}">&nbsp;</td>
                     <td class="show">
                         <h3>
                             <a href="{% url "timeslot-detail" previous_timeslot.id %}">{{ previous_timeslot.show.name }}</a>
@@ -23,8 +23,8 @@
                 </tr>
                 <tr class="current">
                     <td class="start">{{ current_timeslot.start|date:"H:i" }}</td>
-                    <td class="format bf-{{ current_timeslot.show.broadcastformat.slug }}"
-                        title="{{ current_timeslot.show.broadcastformat.format }}">&#x25B6;</td>
+                    <td class="type ty-{{ current_timeslot.show.type.slug }}"
+                        title="{{ current_timeslot.show.type.type }}">&#x25B6;</td>
                     <td class="show">
                         <h3>
                             <a href="{% url "timeslot-detail" current_timeslot.id %}">{{ current_timeslot.show.name }}</a>
@@ -38,8 +38,8 @@
                 </tr>
                 <tr class="next">
                     <td class="start">{{ next_timeslot.start|date:"H:i" }}</td>
-                    <td class="format bf-{{ next_timeslot.show.broadcastformat.slug }}"
-                        title="{{ next_timeslot.show.broadcastformat.format }}">&nbsp;</td>
+                    <td class="type ty-{{ next_timeslot.show.type.slug }}"
+                        title="{{ next_timeslot.show.type.type }}">&nbsp;</td>
                     <td class="show">
                         <h3><a href="{% url "timeslot-detail" next_timeslot.id %}">{{ next_timeslot.show.name }}</a>
                         </h3>
@@ -48,8 +48,8 @@
                 </tr>
                 <tr class="after_next">
                     <td class="start">{{ after_next_timeslot.start|date:"H:i" }}</td>
-                    <td class="format bf-{{ after_next_timeslot.show.broadcastformat.slug }}"
-                        title="{{ after_next_timeslot.show.broadcastformat.format }}">&nbsp;</td>
+                    <td class="type ty-{{ after_next_timeslot.show.type.slug }}"
+                        title="{{ after_next_timeslot.show.type.type }}">&nbsp;</td>
                     <td class="show">
                         <h3>
                             <a href="{% url "timeslot-detail" after_next_timeslot.id %}">{{ after_next_timeslot.show.name }}</a>

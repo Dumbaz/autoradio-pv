@@ -1,0 +1,11 @@
+{% if type_list %}
+    <dl id="type" class="portlet">
+        <dt class="portletHeader"><span>Legende</span></dt>
+        {% for ty in type_list %}
+            <dd class="portletItem type ty-{{ ty.slug }}">
+                <a title="Sendungen mit dem Sendungsformat {{ ty.type }} anzeigen."
+                   href="?type={{ ty.slug }}">{{ type.type }}</a>
+            </dd>
+        {% endfor %}
+    </dl>
+{% endif %}

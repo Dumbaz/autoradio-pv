@@ -9,9 +9,8 @@ from django.shortcuts import get_object_or_404
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
-from pprint import pprint
 
-from .models import BroadcastFormat, MusicFocus, Note, Show, ShowInformation, ShowTopic, TimeSlot, Host
+from .models import Type, MusicFocus, Note, Show, Category, Topic, TimeSlot, Host
 
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
@@ -22,7 +21,7 @@ class CalendarView(TemplateView):
 
 class HostListView(ListView):
     context_object_name = 'host_list'
-    queryset = Host.objects.filter(Q(is_always_visible=True) | Q(shows__programslots__until__gt=datetime.now())).distinct()
+    queryset = Host.objects.filter(Q(is_always_visible=True) | Q(shows__schedules__until__gt=datetime.now())).distinct()
     template_name = 'host_list.html'
 
 
@@ -37,19 +36,23 @@ class ShowListView(ListView):
     template_name = 'show_list.html'
 
     def get_queryset(self):
-        queryset = Show.objects.filter(programslots__until__gt=date.today()).exclude(id=1).distinct()
-        if 'broadcastformat' in self.request.GET:
-            broadcastformat = get_object_or_404(BroadcastFormat, slug=self.request.GET['broadcastformat'])
-            queryset = queryset.filter(broadcastformat=broadcastformat)
+        queryset = Show.objects.filter(schedules__until__gt=date.today()).exclude(id=1).distinct()
+        if 'type' in self.request.GET:
+            type = get_object_or_404(Type, slug=self.request.GET['type'])
+            queryset = queryset.filter(type=type)
         elif 'musicfocus' in self.request.GET:
             musicfocus = get_object_or_404(MusicFocus, slug=self.request.GET['musicfocus'])
             queryset = queryset.filter(musicfocus=musicfocus)
-        elif 'showinformation' in self.request.GET:
-            showinformation = get_object_or_404(ShowInformation, slug=self.request.GET['showinformation'])
-            queryset = queryset.filter(showinformation=showinformation)
-        elif 'showtopic' in self.request.GET:
-            showtopic = get_object_or_404(ShowTopic, slug=self.request.GET['showtopic'])
-            queryset = queryset.filter(showtopic=showtopic)
+        elif 'category' in self.request.GET:
+            category = get_object_or_404(Category, slug=self.request.GET['category'])
+            queryset = queryset.filter(category=category)
+        elif 'topic' in self.request.GET:
+            topic = get_object_or_404(Topic, slug=self.request.GET['topic'])
+            queryset = queryset.filter(topic=topic)
+        elif 'rtrcategory' in self.request.GET:
+            rtrcategory = get_object_or_404(RTRCategory, slug=self.request.GET['rtrcategory'])
+            queryset = queryset.filter(rtrcategory=rtrcategory)
+
 
         return queryset
 
@@ -73,7 +76,7 @@ class RecommendationsListView(ListView):
 
     queryset = TimeSlot.objects.filter(Q(note__isnull=False, note__status=1,
                                          start__range=(now, end)) |
-                                       Q(show__broadcastformat__slug='sondersendung',
+                                       Q(show__type__slug='sondersendung',
                                          start__range=(now, end))).order_by('start')[:20]
 
 
@@ -103,18 +106,18 @@ class DayScheduleView(TemplateView):
 
         timeslots = TimeSlot.objects.get_day_timeslots(today)
 
-        if 'broadcastformat' in self.request.GET:
-            broadcastformat = get_object_or_404(BroadcastFormat, slug=self.request.GET['broadcastformat'])
-            context['timeslots'] = timeslots.filter(show__broadcastformat=broadcastformat)
+        if 'type' in self.request.GET:
+            type = get_object_or_404(Type, slug=self.request.GET['type'])
+            context['timeslots'] = timeslots.filter(show__type=type)
         elif 'musicfocus' in self.request.GET:
             musicfocus = get_object_or_404(MusicFocus, slug=self.request.GET['musicfocus'])
             context['timeslots'] = timeslots.filter(show__musicfocus=musicfocus)
-        elif 'showinformation' in self.request.GET:
-            showinformation = get_object_or_404(ShowInformation, slug=self.request.GET['showinformation'])
-            context['timeslots'] = timeslots.filter(show__showinformation=showinformation)
-        elif 'showtopic' in self.request.GET:
-            showtopic = get_object_or_404(ShowTopic, slug=self.request.GET['showtopic'])
-            context['showtopic'] = timeslots.filter(show__showtopic=showtopic)
+        elif 'category' in self.request.GET:
+            category = get_object_or_404(Category, slug=self.request.GET['category'])
+            context['timeslots'] = timeslots.filter(show__category=category)
+        elif 'topic' in self.request.GET:
+            topic = get_object_or_404(Topic, slug=self.request.GET['topic'])
+            context['topic'] = timeslots.filter(show__topic=topic)
         else:
             context['timeslots'] = timeslots
         return context
@@ -187,10 +190,10 @@ class StylesView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super(StylesView, self).get_context_data(**kwargs)
-        context['broadcastformats'] = BroadcastFormat.objects.filter(enabled=True)
+        context['types'] = Type.objects.filter(enabled=True)
         context['musicfocus'] = MusicFocus.objects.all()
-        context['showinformation'] = ShowInformation.objects.all()
-        context['showtopic'] = ShowTopic.objects.all()
+        context['category'] = Category.objects.all()
+        context['topic'] = Topic.objects.all()
         return context
 
 
@@ -200,7 +203,7 @@ def json_day_schedule(request, year=None, month=None, day=None):
     else:
         today = datetime.strptime('%s__%s__%s__00__00' % (year, month, day), '%Y__%m__%d__%H__%M')
 
-    timeslots = TimeSlot.objects.get_24h_timeslots(today).select_related('programslot').select_related('show')
+    timeslots = TimeSlot.objects.get_24h_timeslots(today).select_related('schedule').select_related('show')
     schedule = []
     for ts in timeslots:
         entry = {
@@ -211,8 +214,8 @@ def json_day_schedule(request, year=None, month=None, day=None):
             'automation-id': -1
         }
 
-        if ts.programslot.automation_id:
-            entry['automation-id'] = ts.programslot.automation_id
+        if ts.schedule.automation_id:
+            entry['automation-id'] = ts.schedule.automation_id
 
         schedule.append(entry)
 
@@ -233,12 +236,12 @@ def json_week_schedule(request):
     else:
         start = datetime.combine( datetime.strptime(request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
 
-    timeslots = TimeSlot.objects.get_7d_timeslots(start).select_related('programslot').select_related('show')
+    timeslots = TimeSlot.objects.get_7d_timeslots(start).select_related('schedule').select_related('show')
     schedule = []
     for ts in timeslots:
 
         # TODO: Will be a field of timeslots in the future
-        is_repetition = ' (WH)' if ts.programslot.is_repetition == 1 else ''
+        is_repetition = ' (WH)' if ts.schedule.is_repetition == 1 else ''
 
         entry = {
             'start': ts.start.strftime('%Y-%m-%dT%H:%M:%S'),
@@ -248,8 +251,8 @@ def json_week_schedule(request):
             'automation-id': -1
         }
 
-        if ts.programslot.automation_id:
-            entry['automation-id'] = ts.programslot.automation_id
+        if ts.schedule.automation_id:
+            entry['automation-id'] = ts.schedule.automation_id
 
         schedule.append(entry)
 
@@ -266,8 +269,8 @@ def json_timeslots_specials(request):
             specials[show['id']] = show
 
     for ts in TimeSlot.objects.filter(end__gt=datetime.now(),
-                                      programslot__automation_id__in=specials.iterkeys()).select_related('show'):
-        automation_id = ts.programslot.automation_id
+                                      schedule__automation_id__in=specials.iterkeys()).select_related('show'):
+        automation_id = ts.schedule.automation_id
         start = ts.start.strftime('%Y-%m-%d_%H:%M:%S')
         end = ts.end.strftime('%Y-%m-%d_%H:%M:%S')
         if specials[automation_id]['pv_id'] != -1:
@@ -284,8 +287,8 @@ def json_timeslots_specials(request):
 
 
 def json_get_timeslot(request):
-   if request.method == 'GET':
-      try:
-         return JsonResponse( model_to_dict(TimeSlot.objects.select_related('programslot').select_related('show').get(pk=int(request.GET.get('timeslot_id')))))
-      except ObjectDoesNotExist:
-         return JsonResponse( list('Error') );
+    if request.method == 'GET':
+        try:
+            return JsonResponse( model_to_dict(TimeSlot.objects.select_related('schedule').select_related('show').get(pk=int(request.GET.get('timeslot_id')))))
+        except ObjectDoesNotExist:
+            return JsonResponse( list('Error') );

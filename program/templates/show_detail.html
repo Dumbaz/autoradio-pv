@@ -8,25 +8,25 @@
 
 <div id="content-main" class="show-detail">
 
-    <div class="show-detail-header bf-{{ show.broadcastformat.slug }}">
+    <div class="show-detail-header ty-{{ show.type.slug }}">
         <div class="show-details">
             <h1 id="name">{{ show.name }}</h1>
             {% if show.id != 1 %}
-                <p id="programslots">
-                    {% for slot in show.active_programslots %}
-                        <span class="programslot">{{ slot }}</span><br/>
+                <p id="schedules">
+                    {% for schedule in show.active_schedules %}
+                        <span class="schedule">{{ schedule }}</span><br/>
                     {% endfor %}
                 </p>
             {% endif %}
         </div>
 
         <div class="show-categorization">
-            <p id="broadcastformat">{{ show.broadcastformat.format }}</p>
-            {% for si in show.showinformation.all %}
-                <span title="{{ si.information }}" class="abbrev si-{{ si.abbrev }}"><span>{{ si.abbrev }}</span></span>
+            <p id="type">{{ show.type.type }}</p>
+            {% for ca in show.category.all %}
+                <span title="{{ ca.category }}" class="abbrev ca-{{ ca.abbrev }}"><span>{{ ca.abbrev }}</span></span>
             {% endfor %}
-            {% for st in show.showtopic.all %}
-                <span title="{{ st.topic }}" class="abbrev st-{{ st.abbrev }}"><span>{{ st.abbrev }}</span></span>
+            {% for to in show.topic.all %}
+                <span title="{{ to.topic }}" class="abbrev to-{{ to.abbrev }}"><span>{{ to.abbrev }}</span></span>
             {% endfor %}
             {% for mf in show.musicfocus.all %}
                 <span title="{{ mf.focus }}" class="abbrev mf-{{ mf.abbrev }}"><span>{{ mf.abbrev }}</span></span>
@@ -41,7 +41,7 @@
         <div id="description">{{ show.description|safe }}</div>
     {% endif %}
 
-    {% if show.image and show.image_enabled %}
+    {% if show.image %}
         <div id="image" style="float: right;"><img src="/program/static/{{ show.image }}" width="200" alt="image"></div>
     {% endif %}
 

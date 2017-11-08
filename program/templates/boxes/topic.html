@@ -1,0 +1,16 @@
+{% if topic_list %}
+    <dl id="filterbox_topic" class="portlet filterbox">
+        <dt class="portletHeader"><span>Thema / Schwerpunkt<span></dt>
+        <dd class="portletItem">
+            <ul>
+                {% for topic in topic_list %}
+                    <li>
+                        <a title="Sendungen mit dem Schwerpunkt {{ topic.topic }} anzeigen."
+                           class="abbrev to-{{ topic.abbrev }}"
+                           href="?topic={{ topic.slug }}">{{ topic.topic }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </dd>
+    </dl>
+{% endif %}

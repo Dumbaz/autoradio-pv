@@ -2,7 +2,7 @@ from django import forms
 from django.forms import ModelForm, ValidationError
 from django.core.files.images import get_image_dimensions
 
-from program.models import MusicFocus, ShowInformation, ShowTopic
+from program.models import MusicFocus, Category, Topic
 
 
 # Couldn't manage call/validation for collision usecase.
@@ -47,13 +47,13 @@ class MusicFocusForm(FormWithButton):
         fields = '__all__'
 
 
-class ShowInformationForm(FormWithButton):
+class CategoryForm(FormWithButton):
     class Meta:
-        model = ShowInformation
+        model = Category
         fields = '__all__'
 
 
-class ShowTopicForm(FormWithButton):
+class TopicForm(FormWithButton):
     class Meta:
-        model = ShowTopic
+        model = Topic
         fields = '__all__'

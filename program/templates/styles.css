@@ -1,5 +1,5 @@
-{% for bf in broadcastformats %}
-.bf-{{ bf.slug }} { background-color: {{ bf.color }}; color: {{ bf.text_color }}; }
+{% for ty in types %}
+.ty-{{ ty.slug }} { background-color: {{ ty.color }}; color: {{ ty.text_color }}; }
 {% endfor %}
 
 {% for mf in musicfocus %}
@@ -7,26 +7,26 @@
 .filterbox .mf-{{ mf.abbrev }}:hover { background-image:url({{ mf.button_hover_url }}); }
 {% endfor %}
 
-{% for si in showinformation %}
-.si-{{ si.abbrev }} { background-image:url({{ si.button_url }}); }
-.filterbox .si-{{ si.abbrev }}:hover { background-image:url({{ si.button_hover_url }}); }
+{% for ca in category %}
+.ca-{{ ca.abbrev }} { background-image:url({{ ca.button_url }}); }
+.filterbox .ca-{{ ca.abbrev }}:hover { background-image:url({{ ca.button_hover_url }}); }
 {% endfor %}
 
-{% for st in showtopic %}
-.st-{{ st.abbrev }} { background-image:url({{ st.button_url }}); }
-.filterbox .st-{{ st.abbrev }}:hover { background-image:url({{ st.button_hover_url }}); }
+{% for to in topic %}
+.to-{{ to.abbrev }} { background-image:url({{ to.button_url }}); }
+.filterbox .to-{{ to.abbrev }}:hover { background-image:url({{ to.button_hover_url }}); }
 {% endfor %}
 
 {% for mf in musicfocus %}
 .show-detail-header .mf-{{ mf.abbrev }} { background-image:url({{ mf.big_button_url }}); }
 {% endfor %}
 
-{% for si in showinformation %}
-.show-detail-header .si-{{ si.abbrev }} { background-image:url({{ si.big_button_url }}); }
+{% for ca in category %}
+.show-detail-header .ca-{{ ca.abbrev }} { background-image:url({{ ca.big_button_url }}); }
 {% endfor %}
 
-{% for st in showtopic %}
-.show-detail-header .st-{{ st.abbrev }} { background-image:url({{ st.big_button_url }}); }
+{% for to in topic %}
+.show-detail-header .to-{{ to.abbrev }} { background-image:url({{ to.big_button_url }}); }
 {% endfor %}
 
 

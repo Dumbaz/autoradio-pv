@@ -5,7 +5,7 @@ from django.utils.html import strip_tags
 from datetime import time
 import MySQLdb
 
-from program.models import Show, ProgramSlot, RRule
+from program.models import Show, Schedule, RRule
 
 USER = 'helsinki'
 PASSWD = 'helsinki'
@@ -20,7 +20,7 @@ RRULES = {
 
 
 class Command(NoArgsCommand):
-    help = 'Import programslots from the current program'
+    help = 'Import schedules from the current program'
 
     def handle_noargs(self, **options):
         connection = MySQLdb.connect(user=USER, passwd=PASSWD, db=DB)
@@ -50,10 +50,10 @@ WHERE letzter_termin > current_date AND titel NOT LIKE 'Musikprogramm' AND titel
                 except ObjectDoesNotExist:
                     print 'show with name "%s" not found' % titel
                 else:
-                    programslot = ProgramSlot(rrule=rrule, byweekday=termin, show=show, dstart=erster_termin,
+                    schedule = Schedule(rrule=rrule, byweekday=termin, show=show, dstart=erster_termin,
                                               tstart=tstart, tend=tend, until=letzter_termin)
                     try:
-                        programslot.save()
+                        schedule.save()
                         counter += 1
                     except:
                         pass
@@ -82,10 +82,10 @@ WHERE letzter_termin > current_date AND titel LIKE '%%(Wiederholung)'""")
                 except ObjectDoesNotExist:
                     print 'show with name "%s" not found' % titel
                 else:
-                    programslot = ProgramSlot(rrule=rrule, byweekday=termin, show=show, dstart=erster_termin,
+                    schedule = Schedule(rrule=rrule, byweekday=termin, show=show, dstart=erster_termin,
                                               tstart=tstart, tend=tend, until=letzter_termin, is_repetition=True)
                     try:
-                        programslot.save()
+                        schedule.save()
                         counter += 1
                     except:
                         pass
@@ -95,4 +95,4 @@ WHERE letzter_termin > current_date AND titel LIKE '%%(Wiederholung)'""")
         cursor.close()
         connection.close()
 
-        print '%i programslots imported' % counter
+        print '%i schedules imported' % counter

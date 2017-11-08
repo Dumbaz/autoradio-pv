@@ -3,10 +3,11 @@ from django.contrib import admin
 from django.utils.translation import ugettext_lazy as _
 from django.shortcuts import render
 
-from .models import BroadcastFormat, MusicFocus, ShowInformation, ShowTopic, Host, Note, RRule, ProgramSlot, Show, TimeSlot
+from .models import Type, MusicFocus, Category, Topic, RTRCategory, Host, Note, RRule, Schedule, Show, TimeSlot
 from .forms import MusicFocusForm, CollisionForm
 
 from datetime import date, datetime, time, timedelta
+
 
 class ActivityFilter(admin.SimpleListFilter):
     title = _("Activity")
@@ -18,40 +19,40 @@ class ActivityFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        if self.parameter_name == 'has_timeslots':  # active/inactive ProgramSlots
+        if self.parameter_name == 'has_timeslots':  # active/inactive Schedules
             if self.value() == 'yes':
                 return queryset.filter(until__gt=datetime.now()).distinct()
             if self.value() == 'no':
                 return queryset.filter(until__lt=datetime.now()).distinct()
 
-        if self.parameter_name == 'has_programslots_timeslots':  # active/inactive Shows
+        if self.parameter_name == 'has_schedules_timeslots':  # active/inactive Shows
             if self.value() == 'yes':
-                return queryset.filter(programslots__until__gt=datetime.now()).distinct()
+                return queryset.filter(schedules__until__gt=datetime.now()).distinct()
             if self.value() == 'no':
-                return queryset.filter(programslots__until__lt=datetime.now()).distinct()
+                return queryset.filter(schedules__until__lt=datetime.now()).distinct()
 
-        if self.parameter_name == 'has_shows_programslots_timeslots':  # active/inactive Hosts
+        if self.parameter_name == 'has_shows_schedules_timeslots':  # active/inactive Hosts
             if self.value() == 'yes':
-                return queryset.filter(shows__programslots__until__gt=datetime.now()).distinct()
+                return queryset.filter(shows__schedules__until__gt=datetime.now()).distinct()
             if self.value() == 'no':
-                return queryset.filter(shows__programslots__until__lt=datetime.now()).distinct()
+                return queryset.filter(shows__schedules__until__lt=datetime.now()).distinct()
 
 
-class ActiveProgramSlotsFilter(ActivityFilter):
+class ActiveSchedulesFilter(ActivityFilter):
     parameter_name = 'has_timeslots'
 
 
 class ActiveShowsFilter(ActivityFilter):
-    parameter_name = 'has_programslots_timeslots'
+    parameter_name = 'has_schedules_timeslots'
 
 
 class ActiveHostsFilter(ActivityFilter):
-    parameter_name = 'has_shows_programslots_timeslots'
+    parameter_name = 'has_shows_schedules_timeslots'
 
 
-class BroadcastFormatAdmin(admin.ModelAdmin):
-    list_display = ('format', 'admin_color', 'enabled')
-    prepopulated_fields = {'slug': ('format',)}
+class TypeAdmin(admin.ModelAdmin):
+    list_display = ('type', 'admin_color', 'enabled')
+    prepopulated_fields = {'slug': ('type',)}
 
 
 class MusicFocusAdmin(admin.ModelAdmin):
@@ -60,15 +61,18 @@ class MusicFocusAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('focus',)}
 
 
-class ShowInformationAdmin(admin.ModelAdmin):
-    list_display = ('information', 'abbrev', 'admin_buttons')
-    prepopulated_fields = {'slug': ('information',)}
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('category', 'abbrev', 'admin_buttons')
+    prepopulated_fields = {'slug': ('category',)}
 
 
-class ShowTopicAdmin(admin.ModelAdmin):
+class TopicAdmin(admin.ModelAdmin):
     list_display = ('topic', 'abbrev', 'admin_buttons')
     prepopulated_fields = {'slug': ('topic',)}
 
+class RTRCategoryAdmin(admin.ModelAdmin):
+    list_display = ('rtrcategory', 'abbrev', )
+    prepopulated_fields = {'slug': ('rtrcategory',)}
 
 class HostAdmin(admin.ModelAdmin):
     list_display = ('name',)
@@ -78,6 +82,7 @@ class HostAdmin(admin.ModelAdmin):
 class NoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'start'
     list_display = ('title', 'show', 'start', 'status')
+    prepopulated_fields = {'slug': ('title',)}
     list_filter = ('status',)
     ordering = ('timeslot',)
     save_as = True
@@ -104,18 +109,17 @@ class NoteAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.save()
 
-
 class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
     ordering = ('-end',)
 
 
-class ProgramSlotAdmin(admin.ModelAdmin):
+class ScheduleAdmin(admin.ModelAdmin):
     actions = ('renew',)
     inlines = (TimeSlotInline,)
     fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id')
     list_display = ('get_show_name', 'byweekday', 'rrule', 'tstart', 'tend', 'until')
-    list_filter = (ActiveProgramSlotsFilter, 'byweekday', 'rrule', 'is_repetition')
+    list_filter = (ActiveSchedulesFilter, 'byweekday', 'rrule', 'is_repetition')
     ordering = ('byweekday', 'dstart')
     save_on_top = True
     search_fields = ('show__name',)
@@ -125,11 +129,11 @@ class ProgramSlotAdmin(admin.ModelAdmin):
         until = date(next_year, 12, 31)
         renewed = queryset.update(until=until)
         if renewed == 1:
-            message = _("1 program slot was renewed until %s") % until
+            message = _("1 schedule was renewed until %s") % until
         else:
-            message = _("%s program slots were renewed until %s") % (renewed, until)
+            message = _("%s schedule were renewed until %s") % (renewed, until)
         self.message_user(request, message)
-    renew.short_description = _("Renew selected program slots")
+    renew.short_description = _("Renew selected schedules")
 
     def get_show_name(self, obj):
         return obj.show.name
@@ -137,22 +141,22 @@ class ProgramSlotAdmin(admin.ModelAdmin):
     get_show_name.short_description = "Show"
 
 
-class ProgramSlotInline(admin.TabularInline):
-    model = ProgramSlot
+class ScheduleInline(admin.TabularInline):
+    model = Schedule
     ordering = ('pk', '-until', 'byweekday')
 
 
 class ShowAdmin(admin.ModelAdmin):
-    filter_horizontal = ('hosts', 'owners', 'musicfocus', 'showinformation', 'showtopic')
-    inlines = (ProgramSlotInline,)
+    filter_horizontal = ('hosts', 'owners', 'musicfocus', 'category', 'topic')
+    inlines = (ScheduleInline,)
     list_display = ('name', 'short_description')
-    list_filter = (ActiveShowsFilter, 'broadcastformat', 'showinformation', 'showtopic', 'musicfocus')
+    list_filter = (ActiveShowsFilter, 'type', 'category', 'topic', 'musicfocus', 'rtrcategory')
     ordering = ('slug',)
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'short_description', 'description')
     fields = (
-        'predecessor', 'broadcastformat', 'name', 'slug', 'image', 'image_enabled', 'short_description', 'description',
-        'email', 'website', 'hosts', 'owners', 'showinformation', 'showtopic',
+        'predecessor', 'type', 'name', 'slug', 'image', 'short_description', 'description',
+        'email', 'website', 'hosts', 'owners', 'category', 'rtrcategory', 'topic',
         'musicfocus',
     )
 
@@ -184,12 +188,12 @@ class ShowAdmin(admin.ModelAdmin):
 
         Saves the show after first submit
 
-        If any changes in programslots happend
-          * added/changed programslots are used to generate new timeslots and
+        If any changes in schedules happened
+          * added/changed schedules are used to generate new timeslots and
             matched against existing ones, which will be displayed in the collision form
 
         If a collision form was submitted
-          * save the current programslot
+          * save the current schedule
           * delete/create timeslots and relink notes after confirmation
 
         Each step passes on to response_add or response_change which will
@@ -200,18 +204,18 @@ class ShowAdmin(admin.ModelAdmin):
 
         self.end_reached = False
 
-        programslot_instances = formset.save(commit=False)
+        schedule_instances = formset.save(commit=False)
 
-        # If there are no programslots to save, do nothing
-        if programslot_instances:
-            show_id = programslot_instances[0].show.id
+        # If there are no schedules to save, do nothing
+        if schedule_instances:
+            show_id = schedule_instances[0].show.id
         else:
             self.end_reached = True
 
-        programslot = []
+        schedule = []
         timeslots = []
 
-        max_steps = int(len(programslot_instances)) if len(programslot_instances) > 0 else 1
+        max_steps = int(len(schedule_instances)) if len(schedule_instances) > 0 else 1
         step = 1
 
         if request.POST.get('step') == None:
@@ -220,7 +224,7 @@ class ShowAdmin(admin.ModelAdmin):
             # Save show data only
             form.save();
 
-            # Delete programslots (as well as related timeslots and notes) if flagged as such
+            # Delete schedules (as well as related timeslots and notes) if flagged as such
             for obj in formset.deleted_objects:
                 obj.delete()
 
@@ -263,8 +267,8 @@ class ShowAdmin(admin.ModelAdmin):
                 num_ntids = int(request.POST.get('num_ntids'))
                 num_ntind = int(request.POST.get('num_ntind'))
 
-                # Retrieve POST vars of current programslot
-                programslot_id = int(request.POST.get('ps_save_id')) if request.POST.get('ps_save_id') != 'None' else None
+                # Retrieve POST vars of current schedule
+                schedule_id = int(request.POST.get('ps_save_id')) if request.POST.get('ps_save_id') != 'None' else None
                 rrule = RRule.objects.get(pk=int(request.POST.get('ps_save_rrule_id')))
                 show = Show.objects.get(pk=show_id)
                 byweekday = int(request.POST.get('ps_save_byweekday'))
@@ -303,14 +307,14 @@ class ShowAdmin(admin.ModelAdmin):
                             delete_timeslots.add(int(collisions[x]))
 
                 # Collect IDs of upcoming timeslots of the same schedule to delete except those in keep_collision
-                if programslot_id != None:
-                    for ts in TimeSlot.objects.filter(start__gte=dstart,end__lte=until,programslot_id=programslot_id).exclude(pk__in=keep_collisions).values_list('id', flat=True):
+                if schedule_id != None:
+                    for ts in TimeSlot.objects.filter(start__gte=dstart,end__lte=until,schedule_id=schedule_id).exclude(pk__in=keep_collisions).values_list('id', flat=True):
                         delete_timeslots.add(ts)
 
 
-                '''Save programslot'''
+                '''Save schedule'''
 
-                new_programslot = ProgramSlot(pk=programslot_id,
+                new_schedule = Schedule(pk=schedule_id,
                                               rrule=rrule,
                                               byweekday=byweekday,
                                               show=show,
@@ -321,9 +325,9 @@ class ShowAdmin(admin.ModelAdmin):
                                               is_repetition=is_repetition,
                                               automation_id=automation_id)
 
-                # Only save programslot if any timeslots changed
+                # Only save schedule if any timeslots changed
                 if len(resolved_timeslots) > 0:
-                    new_programslot.save()
+                    new_schedule.save()
 
 
                 '''Relink notes to existing timeslots and prepare those to be linked'''
@@ -353,7 +357,7 @@ class ShowAdmin(admin.ModelAdmin):
                         start_end = ts.split(' - ')
                         # Only create upcoming timeslots
                         if datetime.strptime(start_end[0], "%Y-%m-%d %H:%M:%S") > datetime.today():
-                            timeslot_created = TimeSlot.objects.create(programslot=new_programslot, start=start_end[0], end=start_end[1])
+                            timeslot_created = TimeSlot.objects.create(schedule=new_schedule, start=start_end[0], end=start_end[1])
 
                             # Link a note to the new timeslot
                             if idx in note_indices:
@@ -381,18 +385,18 @@ class ShowAdmin(admin.ModelAdmin):
         Everything below here is called when a new collision is loaded before being handed over to the client
         '''
 
-        # Generate timeslots from current programslot
+        # Generate timeslots from current schedule
         k = 1
-        for instance in programslot_instances:
-            if isinstance(instance, ProgramSlot):
+        for instance in schedule_instances:
+            if isinstance(instance, Schedule):
                 if k == step:
-                    timeslots = ProgramSlot.generate_timeslots(instance)
-                    programslot = instance
+                    timeslots = Schedule.generate_timeslots(instance)
+                    schedule = instance
                     break
                 k += 1
 
         # Get collisions for timeslots
-        collisions = ProgramSlot.get_collisions(timeslots)
+        collisions = Schedule.get_collisions(timeslots)
 
         # Get notes of colliding timeslots
         notes = []
@@ -402,13 +406,13 @@ class ShowAdmin(admin.ModelAdmin):
             except ObjectDoesNotExist:
                 pass
 
-        self.programslot = programslot
+        self.schedule = schedule
         self.timeslots = timeslots
         self.collisions = collisions
         self.num_collisions = len([ s for s in self.collisions if s != 'None']) # Number of real collisions displayed to the user
         self.notes = notes
         self.showform = form
-        self.programslotsform = formset
+        self.schedulesform = formset
         self.step = step + 1 # Becomes upcoming step
         self.max_steps = max_steps
 
@@ -426,8 +430,8 @@ class ShowAdmin(admin.ModelAdmin):
 
     def respond(self, request, obj):
         """
-        Redirects to the show-change-form if no programslots changed or resolving has been finished (or any other form validation error occured)
-        Displays the collision form for the current programslot otherwise
+        Redirects to the show-change-form if no schedules changed or resolving has been finished (or any other form validation error occured)
+        Displays the collision form for the current schedule otherwise
         """
 
         if self.end_reached:
@@ -440,9 +444,9 @@ class ShowAdmin(admin.ModelAdmin):
         return render(request, 'collisions.html', {'self' : self, 'obj': obj, 'request': request,
                                                    'timeslots': self.timeslots,
                                                    'collisions': self.collisions,
-                                                   'programslot': self.programslot,
+                                                   'schedule': self.schedule,
                                                    'timeslots_to_collisions': timeslots_to_collisions,
-                                                   'programslotsform': self.programslotsform,
+                                                   'schedulesform': self.schedulesform,
                                                    'showform': self.showform,
                                                    'num_inputs': len(self.timeslots),
                                                    'step': self.step,
@@ -451,12 +455,13 @@ class ShowAdmin(admin.ModelAdmin):
                                                    'num_collisions': self.num_collisions})
 
 
-admin.site.register(BroadcastFormat, BroadcastFormatAdmin)
+admin.site.register(Type, TypeAdmin)
 admin.site.register(MusicFocus, MusicFocusAdmin)
-admin.site.register(ShowInformation, ShowInformationAdmin)
-admin.site.register(ShowTopic, ShowTopicAdmin)
+admin.site.register(Category, CategoryAdmin)
+admin.site.register(Topic, TopicAdmin)
+admin.site.register(RTRCategory, RTRCategoryAdmin)
 admin.site.register(Host, HostAdmin)
 admin.site.register(Note, NoteAdmin)
-#admin.site.register(ProgramSlot, ProgramSlotAdmin)
+#admin.site.register(Schedule, ScheduleAdmin)
 #admin.site.register(TimeSlot, TimeSlotAdmin)
 admin.site.register(Show, ShowAdmin)

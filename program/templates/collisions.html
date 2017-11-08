@@ -24,8 +24,8 @@
 
     <div id="content-main">
 
-      <strong>{{ programslot.show }}</strong>
-      <p>{{ programslot }}</p>
+      <strong>{{ schedule.show }}</strong>
+      <p>{{ schedule }}</p>
       <p>
         {{ timeslots|length }} Timeslots generiert.
         {% if self.num_collisions > 0 %}
@@ -33,7 +33,7 @@
         {% endif %}
       </p>
 
-      <form id="collisions_form" action="/admin/program/show/{{ programslot.show_id }}/change/" enctype="multipart/form-data" method="post">
+      <form id="collisions_form" action="/admin/program/show/{{ schedule.show_id }}/change/" enctype="multipart/form-data" method="post">
       {% csrf_token %}
 
         <table class="table">
@@ -127,16 +127,16 @@
           <input type="hidden" name="collisions[{{ forloop.counter0 }}]" value="{{ collision.id}}" />
         {% endfor %}
 
-        <input type="hidden" name="ps_save_id" value="{{ programslot.id }}" />
-        <input type="hidden" name="ps_save_rrule_id" value="{{ programslot.rrule_id }}" />
-        <input type="hidden" name="ps_save_byweekday" value="{{ programslot.byweekday }}" />
-        <input type="hidden" name="ps_save_dstart" value="{{ programslot.dstart|date:"Y-m-d" }}" />
-        <input type="hidden" name="ps_save_tstart" value="{{ programslot.tstart }}" />
-        <input type="hidden" name="ps_save_tend" value="{{ programslot.tend }}" />
-        <input type="hidden" name="ps_save_until" value="{{ programslot.until|date:"Y-m-d" }}" />
-        <input type="hidden" name="ps_save_is_repetition" value="{{ programslot.is_repetition }}" />
-        <input type="hidden" name="ps_save_automation_id" value="{{ programslot.automation_id }}" />
-        <input type="hidden" name="ps_save_show_id" value="{{ programslot.show_id }} " />
+        <input type="hidden" name="ps_save_id" value="{{ schedule.id }}" />
+        <input type="hidden" name="ps_save_rrule_id" value="{{ schedule.rrule_id }}" />
+        <input type="hidden" name="ps_save_byweekday" value="{{ schedule.byweekday }}" />
+        <input type="hidden" name="ps_save_dstart" value="{{ schedule.dstart|date:"Y-m-d" }}" />
+        <input type="hidden" name="ps_save_tstart" value="{{ schedule.tstart }}" />
+        <input type="hidden" name="ps_save_tend" value="{{ schedule.tend }}" />
+        <input type="hidden" name="ps_save_until" value="{{ schedule.until|date:"Y-m-d" }}" />
+        <input type="hidden" name="ps_save_is_repetition" value="{{ schedule.is_repetition }}" />
+        <input type="hidden" name="ps_save_automation_id" value="{{ schedule.automation_id }}" />
+        <input type="hidden" name="ps_save_show_id" value="{{ schedule.show_id }} " />
         <input type="hidden" name="num_inputs" value="{{ num_inputs }}" />
         <input type="hidden" name="step" value="{{ step }}" />
 
@@ -155,7 +155,7 @@
         </div>
 
         <div style="display:none;">
-         {{ programslotsform.as_ul }}
+         {{ schedulesform.as_ul }}
          {{ showform.as_ul }}
         </div>
 

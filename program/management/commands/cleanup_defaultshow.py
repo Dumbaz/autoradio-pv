@@ -1,7 +1,7 @@
 from django.core.management.base import NoArgsCommand
 from django.db import transaction
 
-from program.models import Show, TimeSlot, ProgramSlot
+from program.models import Show, TimeSlot, Schedule
 
 
 class Command(NoArgsCommand):
@@ -13,9 +13,9 @@ class Command(NoArgsCommand):
         default_show = Show.objects.get(pk=1)
         try:
             TimeSlot.objects.filter(show=default_show, note__isnull=True).delete()
-            for programslot in ProgramSlot.objects.filter(show=default_show):
-                if programslot.timeslots.count() == 0:
-                    programslot.delete()
+            for schedule in Schedule.objects.filter(show=default_show):
+                if schedule.timeslots.count() == 0:
+                    schedule.delete()
         except:
             transaction.rollback()
         else:

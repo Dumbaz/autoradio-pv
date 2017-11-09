@@ -1,6 +1,7 @@
 Django==1.11.3
-MySQL-python==1.2.5
+mysqlclient
 Pillow==4.2.1
 PyYAML==3.12
 django-tinymce==2.6.0
 python-dateutil==2.6.0
+django-versatileimagefield==1.8.1

@@ -87,8 +87,12 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'program',
     'nop',
+    'profile',
     'tinymce',
+    'versatileimagefield',
 )
+
+THUMBNAIL_SIZES = ['200x200', '150x150']
 
 TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
 TINYMCE_DEFAULT_CONFIG = {

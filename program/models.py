@@ -4,6 +4,8 @@ from django.urls import reverse
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
+from versatileimagefield.fields import VersatileImageField, PPOIField
+from django.conf import settings
 
 from tinymce import models as tinymce_models
 
@@ -255,7 +257,10 @@ class Show(models.Model):
     musicfocus = models.ManyToManyField(MusicFocus, blank=True, related_name='shows', verbose_name=_("Music focus"))
     name = models.CharField(_("Name"), max_length=255)
     slug = models.CharField(_("Slug"), max_length=255, unique=True)
-    image = models.ImageField(_("Image"), blank=True, null=True, upload_to='show_images')
+    ppoi = PPOIField('Image PPOI')
+    height = models.PositiveIntegerField('Image Height', blank=True, null=True, editable=False)
+    width = models.PositiveIntegerField('Image Width', blank=True, null=True,editable=False)
+    image = VersatileImageField(_("Image"), blank=True, null=True, upload_to='show_images', width_field='width', height_field='height', ppoi_field='ppoi')
     logo = models.ImageField(_("Logo"), blank=True, null=True, upload_to='show_images')
     short_description = models.CharField(_("Short description"), max_length=64)
     description = tinymce_models.HTMLField(_("Description"), blank=True, null=True)
@@ -333,7 +338,8 @@ class Schedule(models.Model):
     tend = models.TimeField(_("End time"))
     until = models.DateField(_("Last date"))
     is_repetition = models.BooleanField(_("Is repetition"), default=False)
-    automation_id = models.IntegerField(_("Automation ID"), blank=True, null=True, choices=get_automation_id_choices())
+    fallback_playlist = models.IntegerField(_("Fallback Playlist"), blank=True, null=True)
+    automation_id = models.IntegerField(_("Automation ID"), blank=True, null=True, choices=get_automation_id_choices()) # Deprecated
     created = models.DateTimeField(auto_now_add=True, editable=False, null=True) #-> both see https://stackoverflow.com/questions/1737017/django-auto-now-and-auto-now-add
     last_updated = models.DateTimeField(auto_now=True, editable=False, null=True)
 
@@ -582,7 +588,10 @@ class Note(models.Model):
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
     summary = tinymce_models.HTMLField(_("Summary"), blank=True)
     content = tinymce_models.HTMLField(_("Content"))
-    image = models.ImageField(_("Featured image"), blank=True, null=True, upload_to='note_images')
+    ppoi = PPOIField('Image PPOI')
+    height = models.PositiveIntegerField('Image Height', blank=True, null=True, editable=False)
+    width = models.PositiveIntegerField('Image Width', blank=True, null=True,editable=False)
+    image = VersatileImageField(_("Featured image"), blank=True, null=True, upload_to='note_images', width_field='width', height_field='height', ppoi_field='ppoi')
     status = models.IntegerField(_("Status"), choices=STATUS_CHOICES, default=1)
     start = models.DateTimeField(editable=False)
     show = models.ForeignKey(Show, editable=False, related_name='notes')
@@ -604,3 +613,8 @@ class Note(models.Model):
         self.show = self.timeslot.schedule.show
 
         super(Note, self).save(*args, **kwargs)
+
+        # Generate thumbnails
+        if self.image.name and settings.THUMBNAIL_SIZES:
+            for size in settings.THUMBNAIL_SIZES:
+                thumbnail = self.image.crop[size].name

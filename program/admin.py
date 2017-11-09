@@ -2,6 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib import admin
 from django.utils.translation import ugettext_lazy as _
 from django.shortcuts import render
+from django.conf import settings
 
 from .models import Type, MusicFocus, Category, Topic, RTRCategory, Host, Note, RRule, Schedule, Show, TimeSlot
 from .forms import MusicFocusForm, CollisionForm
@@ -94,6 +95,7 @@ class NoteAdmin(admin.ModelAdmin):
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         four_weeks_ago = datetime.now() - timedelta(weeks=4)
         in_twelf_weeks = datetime.now() + timedelta(weeks=12)
+
         if db_field.name == 'timeslot':
             try:
                 timeslot_id = int(request.get_full_path().split('/')[-2])
@@ -107,7 +109,10 @@ class NoteAdmin(admin.ModelAdmin):
         return super(NoteAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
     def save_model(self, request, obj, form, change):
+        if not change:
+            obj.user = request.user
         obj.save()
+
 
 class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
@@ -117,7 +122,7 @@ class TimeSlotInline(admin.TabularInline):
 class ScheduleAdmin(admin.ModelAdmin):
     actions = ('renew',)
     inlines = (TimeSlotInline,)
-    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id')
+    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id', 'fallback_playlist')
     list_display = ('get_show_name', 'byweekday', 'rrule', 'tstart', 'tend', 'until')
     list_filter = (ActiveSchedulesFilter, 'byweekday', 'rrule', 'is_repetition')
     ordering = ('byweekday', 'dstart')
@@ -155,9 +160,9 @@ class ShowAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'short_description', 'description')
     fields = (
-        'predecessor', 'type', 'name', 'slug', 'image', 'short_description', 'description',
+        'predecessor', 'type', 'name', 'slug', 'image', 'logo', 'short_description', 'description',
         'email', 'website', 'hosts', 'owners', 'category', 'rtrcategory', 'topic',
-        'musicfocus',
+        'musicfocus', 'fallback_pool', 'cba_series_id',
     )
 
     class Media:
@@ -220,6 +225,11 @@ class ShowAdmin(admin.ModelAdmin):
 
         if request.POST.get('step') == None:
             # First save-show submit
+
+            # Generate thumbnails
+            if form.instance.image.name and settings.THUMBNAIL_SIZES:
+                for size in settings.THUMBNAIL_SIZES:
+                    thumbnail = form.instance.image.crop[size].name
 
             # Save show data only
             form.save();

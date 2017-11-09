@@ -225,6 +225,18 @@ class RTRCategory(models.Model):
         return '%s' % self.rtrcategory
 
 
+class Language(models.Model):
+    name = models.CharField(_("Language"), max_length=32)
+
+    class Meta:
+        ordering = ('language',)
+        verbose_name = _("Language")
+        verbose_name_plural = _("Languages")
+
+    def __str__(self):
+        return '%s' % self.name
+
+
 class Host(models.Model):
     name = models.CharField(_("Name"), max_length=128)
     is_always_visible = models.BooleanField(_("Is always visible"), default=False)
@@ -250,6 +262,7 @@ class Show(models.Model):
     predecessor = models.ForeignKey('self', blank=True, null=True, related_name='successors', verbose_name=_("Predecessor"))
     hosts = models.ManyToManyField(Host, blank=True, related_name='shows', verbose_name=_("Hosts"))
     owners = models.ManyToManyField(User, blank=True, related_name='shows', verbose_name=_("Owners"))
+    language = models.ManyToManyField(Language, blank=True, related_name='language', verbose_name=_("Language"))
     type = models.ForeignKey(Type, related_name='shows', verbose_name=_("Type"))
     category = models.ManyToManyField(Category, blank=True, related_name='shows', verbose_name=_("Category"))
     rtrcategory = models.ForeignKey(RTRCategory, related_name='shows', verbose_name=_("RTR Category"))
@@ -348,8 +361,8 @@ class Schedule(models.Model):
         # Produces error when adding several schedules at the same time.
         # Do this test in another way, since it is quite unspecific anyway
         #unique_together = ('rrule', 'byweekday', 'dstart', 'tstart')
-        verbose_name = _("Program slot")
-        verbose_name_plural = _("Program slots")
+        verbose_name = _("Schedule")
+        verbose_name_plural = _("Schedules")
 
     def __str__(self):
         weekday = self.BYWEEKDAY_CHOICES[self.byweekday][1]

@@ -4,7 +4,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.shortcuts import render
 from django.conf import settings
 
-from .models import Type, MusicFocus, Category, Topic, RTRCategory, Host, Note, RRule, Schedule, Show, TimeSlot
+from .models import Language, Type, MusicFocus, Category, Topic, RTRCategory, Host, Note, RRule, Schedule, Show, TimeSlot
 from .forms import MusicFocusForm, CollisionForm
 
 from datetime import date, datetime, time, timedelta
@@ -67,13 +67,19 @@ class CategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('category',)}
 
 
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+
+
 class TopicAdmin(admin.ModelAdmin):
     list_display = ('topic', 'abbrev', 'admin_buttons')
     prepopulated_fields = {'slug': ('topic',)}
 
+
 class RTRCategoryAdmin(admin.ModelAdmin):
     list_display = ('rtrcategory', 'abbrev', )
     prepopulated_fields = {'slug': ('rtrcategory',)}
+
 
 class HostAdmin(admin.ModelAdmin):
     list_display = ('name',)
@@ -101,8 +107,8 @@ class NoteAdmin(admin.ModelAdmin):
                 timeslot_id = int(request.get_full_path().split('/')[-2])
             except ValueError:
                 shows = request.user.shows.all()
-                kwargs['queryset'] = TimeSlot.objects.filter(show__in=shows, note__isnull=True, start__gt=four_weeks_ago,
-                                                             start__lt=in_twelf_weeks)
+                kwargs['queryset'] = TimeSlot.objects.filter(show__in=shows, start__gt=four_weeks_ago,
+                                                             start__lt=in_twelf_weeks) # note__isnull=True
             else:
                 kwargs['queryset'] = TimeSlot.objects.filter(note=timeslot_id)
 
@@ -152,24 +158,22 @@ class ScheduleInline(admin.TabularInline):
 
 
 class ShowAdmin(admin.ModelAdmin):
-    filter_horizontal = ('hosts', 'owners', 'musicfocus', 'category', 'topic')
+    filter_horizontal = ('hosts', 'owners', 'musicfocus', 'category', 'topic', 'language')
     inlines = (ScheduleInline,)
     list_display = ('name', 'short_description')
-    list_filter = (ActiveShowsFilter, 'type', 'category', 'topic', 'musicfocus', 'rtrcategory')
+    list_filter = (ActiveShowsFilter, 'type', 'category', 'topic', 'musicfocus', 'rtrcategory', 'language')
     ordering = ('slug',)
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'short_description', 'description')
     fields = (
         'predecessor', 'type', 'name', 'slug', 'image', 'logo', 'short_description', 'description',
-        'email', 'website', 'hosts', 'owners', 'category', 'rtrcategory', 'topic',
+        'email', 'website', 'hosts', 'owners', 'language', 'category', 'rtrcategory', 'topic',
         'musicfocus', 'fallback_pool', 'cba_series_id',
     )
 
     class Media:
-        from django.conf import settings
-        media_url = getattr(settings, 'MEDIA_URL')
-        js = [ media_url + 'js/show_change.js',
-               media_url + 'js/calendar/lib/moment.min.js',
+        js = [ settings.MEDIA_URL + 'js/show_change.js',
+               settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
              ]
 
         css = { 'all': ('/program/styles.css',) }
@@ -465,6 +469,7 @@ class ShowAdmin(admin.ModelAdmin):
                                                    'num_collisions': self.num_collisions})
 
 
+admin.site.register(Language, LanguageAdmin)
 admin.site.register(Type, TypeAdmin)
 admin.site.register(MusicFocus, MusicFocusAdmin)
 admin.site.register(Category, CategoryAdmin)

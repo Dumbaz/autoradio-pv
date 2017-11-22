@@ -88,6 +88,11 @@
         <div id="timeslot-id"></div>
         <div id="timeslot-start"></div>
         <div id="timeslot-end"></div>
+        <div id="show-name"></div>
+        <div id="show-id"></div>
+        <div id="show-hosts"></div>
+        <div id="is-repetition"></div>
+        <div id="fallback-playlist-id"></div>
         <div id="response-message"></div>
       </div>
     </div>
@@ -138,7 +143,7 @@
                 .done(function( data ) {
                    // Remove element from DOM
                    jQuery('#calendar').fullCalendar('removeEvents', event._id );
-                   notify( 'Episode gel&ouml;scht.' );
+                   notify( 'Time slot deleted.' );
                    console.log(data.result);
                 })
                 .fail(function( data ) {
@@ -170,6 +175,12 @@
                 jQuery("#timeslot-id").html(timeslot.id);
                 jQuery("#timeslot-start").html(timeslot.start);
                 jQuery("#timeslot-end").html(timeslot.end);
+                jQuery("#show-name").html(timeslot.show_name);
+                jQuery("#show-id").html(timeslot.show_id);
+                jQuery("#show-hosts").html(timeslot.show_hosts);
+                jQuery("#is-repetition").html(timeslot.is_repetition);
+                jQuery("#fallback-playlist-id").html(timeslot.fallback_playlist_id);
+                jQuery("#memo").html(timeslot.memo);
                 jQuery("#response-message").html("Success");
               },
               error: function() {
@@ -200,6 +211,7 @@
        });
     });
 
+/*
     function updateTimeslot( event ) {
 
        var id = event.id;
@@ -213,7 +225,7 @@
 
        jQuery.post( ajaxurl, { 'action': 'update_timeslot', 'id': id, 'date': date, 'start': start, 'stop' : stop } )
        .done(function( data ) {
-          notify( '&Auml;nderungen gespeichert.' );
+          notify( 'Changes saved.' );
           console.log(data.result);
        })
        .fail(function( data ) {
@@ -221,7 +233,7 @@
        });
 
     }
-
+*/
     </script>
 
 </body>

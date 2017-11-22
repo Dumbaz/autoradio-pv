@@ -9,7 +9,6 @@ from .forms import MusicFocusForm, CollisionForm
 
 from datetime import date, datetime, time, timedelta
 
-
 class ActivityFilter(admin.SimpleListFilter):
     title = _("Activity")
 
@@ -89,32 +88,61 @@ class HostAdmin(admin.ModelAdmin):
 class NoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'start'
     list_display = ('title', 'show', 'start', 'status')
+    fields = (( 'show', 'timeslot'), 'title', 'slug', 'summary', 'content', 'image', 'status', 'cba_id')
     prepopulated_fields = {'slug': ('title',)}
     list_filter = ('status',)
     ordering = ('timeslot',)
     save_as = True
 
+    class Media:
+        js = [ settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
+               settings.MEDIA_URL + 'js/note_change.js', ]
+
     def get_queryset(self, request):
-        shows = request.user.shows.all()
+        if request.user.is_superuser:
+            # Superusers see notes of all shows
+            shows = Show.objects.all()
+        else:
+            # Users only see notes of shows they own
+            shows = request.user.shows.all()
+
         return super(NoteAdmin, self).get_queryset(request).filter(show__in=shows)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         four_weeks_ago = datetime.now() - timedelta(weeks=4)
-        in_twelf_weeks = datetime.now() + timedelta(weeks=12)
+        in_twelve_weeks = datetime.now() + timedelta(weeks=12)
 
         if db_field.name == 'timeslot':
-            try:
-                timeslot_id = int(request.get_full_path().split('/')[-2])
-            except ValueError:
-                shows = request.user.shows.all()
-                kwargs['queryset'] = TimeSlot.objects.filter(show__in=shows, start__gt=four_weeks_ago,
-                                                             start__lt=in_twelf_weeks) # note__isnull=True
+            # Adding/Editing a note: load timeslots of the user's shows into the dropdown
+
+            # TODO: Don't show any timeslot in the select by default.
+            #       User should first choose show, then timeslots are loaded into the select via ajax.
+            #
+            # How to do this while not constraining the queryset?
+            # Saving won't be possible otherwise, if queryset doesn't contain the selectable elements beforehand
+            #kwargs['queryset'] = TimeSlot.objects.filter(show=-1)
+
+            # Superusers see every timeslot for every show
+            if request.user.is_superuser:
+                kwargs['queryset'] = TimeSlot.objects.filter(start__gt=four_weeks_ago,
+                                                             start__lt=in_twelve_weeks) # note__isnull=True
+            # Users see timeslots of shows they own
             else:
-                kwargs['queryset'] = TimeSlot.objects.filter(note=timeslot_id)
+                kwargs['queryset'] = TimeSlot.objects.filter(show__in=request.user.shows.all(), start__gt=four_weeks_ago,
+                                                             start__lt=in_twelve_weeks) # note__isnull=True
+
+        if db_field.name == 'show':
+            # Adding/Editing a note: load user's shows into the dropdown
+
+            # Superusers see all shows
+            if not request.user.is_superuser:
+                kwargs['queryset'] = Show.objects.filter(pk__in=request.user.shows.all())
 
         return super(NoteAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
     def save_model(self, request, obj, form, change):
+
+        # Save the creator when adding a note
         if not change:
             obj.user = request.user
         obj.save()
@@ -124,11 +152,14 @@ class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
     ordering = ('-end',)
 
+class TimeSlotAdmin(admin.ModelAdmin):
+    model = TimeSlot
+
 
 class ScheduleAdmin(admin.ModelAdmin):
     actions = ('renew',)
     inlines = (TimeSlotInline,)
-    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id', 'fallback_playlist')
+    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id', 'fallback_playlist_id')
     list_display = ('get_show_name', 'byweekday', 'rrule', 'tstart', 'tend', 'until')
     list_filter = (ActiveSchedulesFilter, 'byweekday', 'rrule', 'is_repetition')
     ordering = ('byweekday', 'dstart')
@@ -171,10 +202,19 @@ class ShowAdmin(admin.ModelAdmin):
         'musicfocus', 'fallback_pool', 'cba_series_id',
     )
 
+    def get_queryset(self, request):
+        if request.user.is_superuser:
+            # Superusers see all shows
+            shows = Show.objects.all()
+        else:
+            # Users only see shows they own
+            shows = request.user.shows.all()
+
+        return super(ShowAdmin, self).get_queryset(request).filter(pk__in=shows)
+
     class Media:
-        js = [ settings.MEDIA_URL + 'js/show_change.js',
-               settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
-             ]
+        js = [ settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
+               settings.MEDIA_URL + 'js/show_change.js', ]
 
         css = { 'all': ('/program/styles.css',) }
 
@@ -294,6 +334,7 @@ class ShowAdmin(admin.ModelAdmin):
                 until = datetime.strptime(request.POST.get('ps_save_until'), '%Y-%m-%d').date()
                 is_repetition = request.POST.get('ps_save_is_repetition')
                 automation_id = int(request.POST.get('ps_save_automation_id')) if request.POST.get('ps_save_automation_id') != 'None' else 0
+                fallback_playlist_id = int(request.POST.get('fallback_playlist_id')) if request.POST.get('ps_save_fallback_playlist_id') != 'None' else 0
 
                 # Put timeslot POST vars into lists with same indices
                 for i in range(num_inputs):
@@ -337,7 +378,8 @@ class ShowAdmin(admin.ModelAdmin):
                                               tend=tend,
                                               until=until,
                                               is_repetition=is_repetition,
-                                              automation_id=automation_id)
+                                              automation_id=automation_id,
+                                              fallback_playlist_id=fallback_playlist_id)
 
                 # Only save schedule if any timeslots changed
                 if len(resolved_timeslots) > 0:
@@ -371,7 +413,7 @@ class ShowAdmin(admin.ModelAdmin):
                         start_end = ts.split(' - ')
                         # Only create upcoming timeslots
                         if datetime.strptime(start_end[0], "%Y-%m-%d %H:%M:%S") > datetime.today():
-                            timeslot_created = TimeSlot.objects.create(schedule=new_schedule, start=start_end[0], end=start_end[1])
+                            timeslot_created = TimeSlot.objects.create(schedule=new_schedule, is_repetition=new_schedule.is_repetition, start=start_end[0], end=start_end[1])
 
                             # Link a note to the new timeslot
                             if idx in note_indices:
@@ -478,5 +520,5 @@ admin.site.register(RTRCategory, RTRCategoryAdmin)
 admin.site.register(Host, HostAdmin)
 admin.site.register(Note, NoteAdmin)
 #admin.site.register(Schedule, ScheduleAdmin)
-#admin.site.register(TimeSlot, TimeSlotAdmin)
+admin.site.register(TimeSlot, TimeSlotAdmin)
 admin.site.register(Show, ShowAdmin)

@@ -3,8 +3,7 @@ from django.conf.urls import url, include
 from django.contrib import admin
 from django.views.static import serve
 
-from program.views import json_day_schedule, json_week_schedule, json_timeslots_specials, json_get_timeslot
-
+from program.views import json_day_schedule, json_week_schedule, json_timeslots_specials, json_get_timeslot, json_get_timeslots_by_show
 
 admin.autodiscover()
 
@@ -17,6 +16,7 @@ urlpatterns = [
     url(r'^export/week_schedule$', json_week_schedule),
     url(r'^export/timeslots_specials.json$', json_timeslots_specials),
     url(r'^export/get_timeslot$', json_get_timeslot, name='get-timeslot'),
+    url(r'^export/get_timeslots_by_show$', json_get_timeslots_by_show, name='get-timeslots-by-show'),
 ]
 
 if settings.DEBUG:

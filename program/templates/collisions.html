@@ -136,6 +136,7 @@
         <input type="hidden" name="ps_save_until" value="{{ schedule.until|date:"Y-m-d" }}" />
         <input type="hidden" name="ps_save_is_repetition" value="{{ schedule.is_repetition }}" />
         <input type="hidden" name="ps_save_automation_id" value="{{ schedule.automation_id }}" />
+        <input type="hidden" name="ps_save_fallback_playlist_id" value="{{ schedule.fallback_playlist_id }}" />
         <input type="hidden" name="ps_save_show_id" value="{{ schedule.show_id }} " />
         <input type="hidden" name="num_inputs" value="{{ num_inputs }}" />
         <input type="hidden" name="step" value="{{ step }}" />
@@ -154,6 +155,7 @@
           <p class="deletelink-box"><a href="/admin/program/show/{{ obj.id }}/change" class="deletelink">Abbrechen und &Auml;nderungen verwerfen</a></p>
         </div>
 
+        <!-- TODO: Problemo: If form validation failed, submit will be prevented -> only include the fields necessary -->
         <div style="display:none;">
          {{ schedulesform.as_ul }}
          {{ showform.as_ul }}

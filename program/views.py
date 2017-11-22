@@ -11,7 +11,6 @@ from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 
 from .models import Type, MusicFocus, Note, Show, Category, Topic, TimeSlot, Host
-
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
 
@@ -227,6 +226,7 @@ def json_week_schedule(request):
     """
     Called by calendar to get all timeslots for a week.
     Expects GET variable 'start' (date), otherwise start will be today
+    Returns all timeslots of the next 7 days
     """
 
     start = request.GET.get('start')
@@ -240,15 +240,28 @@ def json_week_schedule(request):
     schedule = []
     for ts in timeslots:
 
-        # TODO: Will be a field of timeslots in the future
-        is_repetition = ' (WH)' if ts.schedule.is_repetition == 1 else ''
+        is_repetition = ' ' + _('WH') if ts.schedule.is_repetition is 1 else ''
+
+        hosts = ''
+
+        for host in ts.show.hosts.all():
+            hosts = host.name + ', ' + hosts
 
         entry = {
             'start': ts.start.strftime('%Y-%m-%dT%H:%M:%S'),
             'end': ts.end.strftime('%Y-%m-%dT%H:%M:%S'),
             'title': ts.show.name + is_repetition,
             'id': ts.id, #show.id,
-            'automation-id': -1
+            'automation-id': -1,
+            'schedule_id': ts.schedule.id,
+            'show_id': ts.show.id,
+            'show_name': ts.show.name,
+            'show_hosts': hosts,
+            'is_repetition': ts.is_repetition,
+            'fallback_playlist_id': ts.schedule.fallback_playlist_id, # the schedule's fallback playlist
+            'show_fallback_pool': ts.show.fallback_pool, # the show's fallback
+            # TODO
+            #'station_fallback_pool': # the station's global fallback (might change suddenly)
         }
 
         if ts.schedule.automation_id:
@@ -287,8 +300,56 @@ def json_timeslots_specials(request):
 
 
 def json_get_timeslot(request):
+    if not request.user.is_authenticated():
+        return JsonResponse(_('Permission denied.'))
+
     if request.method == 'GET':
         try:
-            return JsonResponse( model_to_dict(TimeSlot.objects.select_related('schedule').select_related('show').get(pk=int(request.GET.get('timeslot_id')))))
+            timeslot = TimeSlot.objects.get(pk=int(request.GET.get('timeslot_id')))
+
+            returnvar = { 'id': timeslot.id, 'start': timeslot.start, 'end': timeslot.end,
+                          'schedule_id': timeslot.schedule.id, 'show_name': timeslot.show.name,
+                          'is_repetition': timeslot.schedule.is_repetition,
+                          'fallback_playlist_id': timeslot.schedule.fallback_playlist_id,
+                          'memo': timeslot.memo }
+            return JsonResponse( returnvar, safe=False )
         except ObjectDoesNotExist:
-            return JsonResponse( list('Error') );
+            return JsonResponse( _('Error') );
+
+
+def json_get_timeslots_by_show(request):
+    '''
+    Returns a JSON object of timeslots of a given show from 4 weeks ago until 12 weeks in the future
+    Called by /export/get_timeslot_by_show/?show_id=1 to populate a timeslot-select for being assigned to a note
+    '''
+
+    if not request.user.is_authenticated():
+        return JsonResponse(_('Permission denied.'))
+
+    if request.method == 'GET' and int(request.GET.get('show_id')):
+
+        four_weeks_ago = datetime.now() - timedelta(weeks=4)
+        in_twelve_weeks = datetime.now() + timedelta(weeks=12)
+
+        timeslots = []
+        saved_timeslot_id = int(request.GET.get('timeslot_id'))
+
+        # If the saved timeslot is part of the currently selected show,
+        # include it as the first select-option in order not to lose it if it's past
+        if saved_timeslot_id > 0:
+            try:
+                saved_timeslot = TimeSlot.objects.get(pk=int(request.GET.get('timeslot_id')),show=int(request.GET.get('show_id')))
+                timeslots.append( { 'timeslot': str(saved_timeslot), 'timeslot_id': saved_timeslot.id, 'start': saved_timeslot.start, 'end': saved_timeslot.end } )
+            except ObjectDoesNotExist:
+                pass
+
+        for timeslot in TimeSlot.objects.filter(show=int(request.GET.get('show_id')),
+                                                start__gt=four_weeks_ago,
+                                                start__lt=in_twelve_weeks).exclude(pk=saved_timeslot_id):
+
+            timeslots.append( { 'timeslot': str(timeslot), 'timeslot_id' : timeslot.id, 'start': timeslot.start, 'end': timeslot.end } )
+
+        return JsonResponse( timeslots, safe=False )
+
+    else:
+        return JsonResponse( _('No show_id given.'), safe=False )

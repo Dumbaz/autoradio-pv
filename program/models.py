@@ -351,16 +351,17 @@ class Schedule(models.Model):
     tend = models.TimeField(_("End time"))
     until = models.DateField(_("Last date"))
     is_repetition = models.BooleanField(_("Is repetition"), default=False)
-    fallback_playlist = models.IntegerField(_("Fallback Playlist"), blank=True, null=True)
+    fallback_playlist_id = models.IntegerField(_("Fallback Playlist ID"), blank=True, null=True)
     automation_id = models.IntegerField(_("Automation ID"), blank=True, null=True, choices=get_automation_id_choices()) # Deprecated
     created = models.DateTimeField(auto_now_add=True, editable=False, null=True) #-> both see https://stackoverflow.com/questions/1737017/django-auto-now-and-auto-now-add
     last_updated = models.DateTimeField(auto_now=True, editable=False, null=True)
 
     class Meta:
         ordering = ('dstart', 'tstart')
-        # Produces error when adding several schedules at the same time.
-        # Do this test in another way, since it is quite unspecific anyway
-        #unique_together = ('rrule', 'byweekday', 'dstart', 'tstart')
+        # DEPRECATED
+        # Produces error when adding several schedules at the same time
+        # get_collisions() covers this case and checks for interfering times too
+        # unique_together = ('rrule', 'byweekday', 'dstart', 'tstart')
         verbose_name = _("Schedule")
         verbose_name_plural = _("Schedules")
 
@@ -369,6 +370,7 @@ class Schedule(models.Model):
         tend = self.tend.strftime('%H:%M')
         dstart = self.dstart.strftime('%d. %b %Y')
         tstart = self.tstart.strftime('%H:%M')
+        #is_repetition = self.is_repetition
 
         if self.rrule.freq == 0:
             return '%s %s, %s - %s' % (self.rrule, dstart, tstart, tend)
@@ -380,7 +382,7 @@ class Schedule(models.Model):
     def generate_timeslots(schedule):
         """
         Returns a list of timeslot objects based on a schedule and its rrule
-        Returns past timeslots as well starting from dstart (not today)
+        Returns past timeslots as well, starting from dstart (not today)
         """
 
         byweekno = None
@@ -562,6 +564,8 @@ class TimeSlot(models.Model):
     start = models.DateTimeField(_("Start time")) # Removed 'unique=True' because new Timeslots need to be created before deleting the old ones (otherwise linked notes get deleted first)
     end = models.DateTimeField(_("End time"))
     show = models.ForeignKey(Show, editable=False, related_name='timeslots')
+    memo = models.TextField(_("Memo"), blank=True)
+    is_repetition = models.BooleanField(_("WH"), default=False)
 
     objects = TimeSlotManager()
 
@@ -571,10 +575,11 @@ class TimeSlot(models.Model):
         verbose_name_plural = _("Time slots")
 
     def __str__(self):
-        start = self.start.strftime('%d.%m.%Y %H:%M')
+        start = self.start.strftime('%a, %d.%m.%Y %H:%M')
         end = self.end.strftime('%H:%M')
+        is_repetition = ' ' + _('WH') if self.schedule.is_repetition is 1 else ''
 
-        return '%s - %s  |  %s' % (start, end, self.show.name)
+        return '%s - %s  %s (%s)' % (start, end, is_repetition, self.show.name)
 
     def save(self, *args, **kwargs):
         self.show = self.schedule.show
@@ -607,7 +612,7 @@ class Note(models.Model):
     image = VersatileImageField(_("Featured image"), blank=True, null=True, upload_to='note_images', width_field='width', height_field='height', ppoi_field='ppoi')
     status = models.IntegerField(_("Status"), choices=STATUS_CHOICES, default=1)
     start = models.DateTimeField(editable=False)
-    show = models.ForeignKey(Show, editable=False, related_name='notes')
+    show = models.ForeignKey(Show, related_name='notes', editable=True) # User chooses the show. Timeslots are loaded via ajax.
     cba_id = models.IntegerField(_("CBA ID"), blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, editable=False)
     last_updated = models.DateTimeField(auto_now=True, editable=False)

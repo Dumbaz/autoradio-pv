@@ -14,9 +14,16 @@ function toggleSelects( select_elm ) {
    if( option_val < 4 ) {
       weekday_select.fadeOut().val(0); // Although it'll be ignored, select Monday in order the form can be validated
 
-      if( option_val == 1 )
+      if( option_val == 1 ) {
          // If once, hide the until-date too and try to set it to dstart
-         until_select.val(dstart.val()).fadeOut().next('.datetimeshortcuts').fadeOut();
+			if( until_select.val() == '')
+			  until_select.val(dstart.val());
+
+         until_select.fadeOut().next('.datetimeshortcuts').fadeOut();
+      } else {
+         until_select.fadeIn().next('.datetimeshortcuts').fadeIn();
+      }
+
 
    } else {
       weekday_select.fadeIn();

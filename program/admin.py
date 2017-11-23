@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.conf import settings
 
 from .models import Language, Type, MusicFocus, Category, Topic, RTRCategory, Host, Note, RRule, Schedule, Show, TimeSlot
-from .forms import MusicFocusForm, CollisionForm
+from .forms import MusicFocusForm
 
 from datetime import date, datetime, time, timedelta
 
@@ -202,6 +202,14 @@ class ShowAdmin(admin.ModelAdmin):
         'musicfocus', 'fallback_pool', 'cba_series_id',
     )
 
+
+    class Media:
+        js = [ settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
+               settings.MEDIA_URL + 'js/show_change.js', ]
+
+        css = { 'all': ('/program/styles.css',) }
+
+
     def get_queryset(self, request):
         if request.user.is_superuser:
             # Superusers see all shows
@@ -212,11 +220,12 @@ class ShowAdmin(admin.ModelAdmin):
 
         return super(ShowAdmin, self).get_queryset(request).filter(pk__in=shows)
 
-    class Media:
-        js = [ settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
-               settings.MEDIA_URL + 'js/show_change.js', ]
 
-        css = { 'all': ('/program/styles.css',) }
+    def get_readonly_fields(self, request, obj=None):
+        '''Limit field access for common users'''
+        if not request.user.is_superuser:
+            return ('predecessor', 'type', 'hosts', 'owners', 'language', 'category', 'topic', 'musicfocus', 'rtrcategory')
+        return list()
 
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -490,12 +499,15 @@ class ShowAdmin(admin.ModelAdmin):
         Displays the collision form for the current schedule otherwise
         """
 
+        # Never check for collisions if not superuser
+        # Common users can't edit the formset, so save_formset() will never be called thus end_reached wasn't set yet
+        if not request.user.is_superuser:
+           self.end_reached = True
+
         if self.end_reached:
             return super(ShowAdmin, self).response_change(request, obj)
 
         timeslots_to_collisions = list(zip(self.timeslots, self.collisions))
-
-        # myform = CollisionForm(self.timeslots, self.collisions)
 
         return render(request, 'collisions.html', {'self' : self, 'obj': obj, 'request': request,
                                                    'timeslots': self.timeslots,

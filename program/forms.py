@@ -5,16 +5,6 @@ from django.core.files.images import get_image_dimensions
 from program.models import MusicFocus, Category, Topic
 
 
-# Couldn't manage call/validation for collision usecase.
-class CollisionForm(forms.Form):
-
-    def __init__(self, timeslots, collisions, *args, **kwargs):
-        super(CollisionForm, self).__init__(*args, **kwargs)
-
-        for i in range(min(len(timeslots), len(timeslots))):
-            self.fields['resolved_' + str(i)] = forms.ChoiceField(widget=forms.RadioSelect,choices=((timeslots[i], timeslots[i]),(collisions[i], collisions[i])))
-
-
 class FormWithButton(ModelForm):
     def clean_button(self):
         button = self.cleaned_data.get('button')

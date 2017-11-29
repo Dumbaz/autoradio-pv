@@ -11,7 +11,7 @@ import os
 from tinymce import models as tinymce_models
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', editable=False)
     biography = tinymce_models.HTMLField(_("Biography"), blank=True, null=True, help_text=_("Describe yourself and your fields of interest in a few sentences."))
     website = models.URLField(_("Website"), blank=True, help_text=_("URL to your personal website."))
     googleplus_url = models.URLField(_("Google+ URL"), blank=True, help_text=_("URL to your Google+ profile."))

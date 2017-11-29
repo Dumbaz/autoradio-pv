@@ -2,15 +2,25 @@ import json
 from datetime import date, datetime, time, timedelta
 
 from django.db.models import Q
+from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from django.forms.models import model_to_dict
-from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.models import User
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.decorators import detail_route, list_route
 
-from .models import Type, MusicFocus, Note, Show, Category, Topic, TimeSlot, Host
+from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope, TokenHasScope
+
+from program.models import Type, MusicFocus, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host
+from profile.models import Profile
+from program.serializers import ShowSerializer, TimeSlotSerializer, UserSerializer, NoteSerializer
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
 
@@ -229,9 +239,7 @@ def json_week_schedule(request):
     Returns all timeslots of the next 7 days
     """
 
-    start = request.GET.get('start')
-
-    if start == None:
+    if request.GET.get('start') == None:
         start = datetime.combine(date.today(), time(0, 0))
     else:
         start = datetime.combine( datetime.strptime(request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
@@ -242,26 +250,42 @@ def json_week_schedule(request):
 
         is_repetition = ' ' + _('WH') if ts.schedule.is_repetition is 1 else ''
 
-        hosts = ''
+        hosts = ', '.join(ts.show.hosts.values_list('name', flat=True))
+        categories = ', '.join(ts.show.category.values_list('category', flat=True))
+        topics = ', '.join(ts.show.topic.values_list('topic', flat=True))
+        musicfocus = ', '.join(ts.show.musicfocus.values_list('focus', flat=True))
+        languages = ', '.join(ts.show.language.values_list('name', flat=True))
+        rtrcategory = RTRCategory.objects.get(pk=ts.show.rtrcategory_id)
+        type = Type.objects.get(pk=ts.show.type_id)
 
-        for host in ts.show.hosts.all():
-            hosts = host.name + ', ' + hosts
+        classname = 'default'
+
+        if ts.playlist_id is None or ts.playlist_id == 0:
+            classname = 'danger'
 
         entry = {
+            'id': ts.id,
             'start': ts.start.strftime('%Y-%m-%dT%H:%M:%S'),
             'end': ts.end.strftime('%Y-%m-%dT%H:%M:%S'),
-            'title': ts.show.name + is_repetition,
-            'id': ts.id, #show.id,
+            'title': ts.show.name + is_repetition, # For JS Calendar
             'automation-id': -1,
             'schedule_id': ts.schedule.id,
-            'show_id': ts.show.id,
-            'show_name': ts.show.name,
-            'show_hosts': hosts,
             'is_repetition': ts.is_repetition,
-            'fallback_playlist_id': ts.schedule.fallback_playlist_id, # the schedule's fallback playlist
-            'show_fallback_pool': ts.show.fallback_pool, # the show's fallback
-            # TODO
-            #'station_fallback_pool': # the station's global fallback (might change suddenly)
+            'playlist_id': ts.playlist_id,
+            'schedule_fallback_id': ts.schedule.fallback_playlist_id, # The schedule's fallback
+            'show_fallback_id': ts.show.fallback_pool, # The show's fallback
+            'show_id': ts.show.id,
+            'show_name': ts.show.name + is_repetition,
+            'show_hosts': hosts,
+            'show_type': type.type,
+            'show_categories': categories,
+            'show_topics': topics,
+            'show_musicfocus': musicfocus,
+            'show_languages': languages,
+            'show_rtrcategory': rtrcategory.rtrcategory,
+            'station_fallback_id': 0, # TODO: The station's global fallback (might change)
+            'memo': ts.memo,
+            'className': classname,
         }
 
         if ts.schedule.automation_id:
@@ -299,40 +323,22 @@ def json_timeslots_specials(request):
                         content_type="application/json; charset=utf-8")
 
 
-def json_get_timeslot(request):
-    if not request.user.is_authenticated():
-        return JsonResponse(_('Permission denied.'))
-
-    if request.method == 'GET':
-        try:
-            timeslot = TimeSlot.objects.get(pk=int(request.GET.get('timeslot_id')))
-
-            returnvar = { 'id': timeslot.id, 'start': timeslot.start, 'end': timeslot.end,
-                          'schedule_id': timeslot.schedule.id, 'show_name': timeslot.show.name,
-                          'is_repetition': timeslot.schedule.is_repetition,
-                          'fallback_playlist_id': timeslot.schedule.fallback_playlist_id,
-                          'memo': timeslot.memo }
-            return JsonResponse( returnvar, safe=False )
-        except ObjectDoesNotExist:
-            return JsonResponse( _('Error') );
-
-
 def json_get_timeslots_by_show(request):
     '''
     Returns a JSON object of timeslots of a given show from 4 weeks ago until 12 weeks in the future
-    Called by /export/get_timeslot_by_show/?show_id=1 to populate a timeslot-select for being assigned to a note
+    Called by /api/v1/timeslots/?show_id=1 to populate a timeslot-select for being assigned to a note
     '''
 
     if not request.user.is_authenticated():
         return JsonResponse(_('Permission denied.'))
 
-    if request.method == 'GET' and int(request.GET.get('show_id')):
+    if request.method == 'GET' and request.GET.get('show_id') != None:
 
         four_weeks_ago = datetime.now() - timedelta(weeks=4)
         in_twelve_weeks = datetime.now() + timedelta(weeks=12)
 
         timeslots = []
-        saved_timeslot_id = int(request.GET.get('timeslot_id'))
+        saved_timeslot_id = 0 if request.GET.get('timeslot_id') == None else int(request.GET.get('timeslot_id'))
 
         # If the saved timeslot is part of the currently selected show,
         # include it as the first select-option in order not to lose it if it's past
@@ -353,3 +359,306 @@ def json_get_timeslots_by_show(request):
 
     else:
         return JsonResponse( _('No show_id given.'), safe=False )
+
+
+
+
+####################################################################
+# REST API View Sets
+####################################################################
+
+
+class APIUserViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/users   Returns oneself - Superusers see all users
+    /api/v1/users/1 Used for retrieving or updating a single user
+
+    Superusers may access and update all users
+    """
+
+    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions] #, TokenHasReadWriteScope]
+    serializer_class = UserSerializer
+    queryset = User.objects.all()
+    required_scopes = ['users']
+
+    def list(self, request):
+        # Commons users only see themselves
+        if request.user.is_superuser:
+            users = User.objects.all()
+        else:
+            users = User.objects.filter(pk=request.user.id)
+
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+
+
+    def retrieve(self, request, pk=None):
+        """Returns a single user"""
+        if pk != None:
+            pk = int(pk)
+            try:
+                user = User.objects.get(pk=pk)
+            except ObjectDoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+            # Common users may only see themselves
+            if not request.user.is_superuser and user.id != request.user.id:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            serializer = UserSerializer(user)
+            return Response(serializer.data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    def partial_update(self, request, pk=None):
+
+        # Common users may only edit themselves
+        if not request.user.is_superuser and int(pk) != request.user.id:
+            return Response(serializer.initial_data, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = UserSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save();
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class APIShowViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/shows/  Returns shows a user owns
+    /api/v1/shows/1 Used for retrieving a single show or update (if owned)
+
+    Superusers may access and update all shows
+    """
+
+    queryset = Show.objects.all()
+    serializer_class = ShowSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions] #, TokenHasReadWriteScope]
+    required_scopes = ['shows']
+
+
+    def list(self, request):
+        """Lists all shows"""
+
+        # Commons users only see shows they own
+        if request.user.is_superuser:
+            shows = Show.objects.all()
+        else:
+            shows = request.user.shows.all()
+
+        serializer = ShowSerializer(shows, many=True)
+        return Response(serializer.data)
+
+
+    def create(self, request):
+        """Create is not allowed at the moment"""
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
+    def retrieve(self, request, pk=None):
+        """Returns a single show"""
+
+        if pk != None and int(pk):
+            pk = int(pk)
+
+            # Common users may only retrieve shows they own
+            if not request.user.is_superuser and pk not in list(request.user.shows.all().values_list('id', flat=True)):
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            try:
+                show = Show.objects.get(pk=pk)
+            except ObjectDoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+            serializer = ShowSerializer(show)
+            return Response(serializer.data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    def partial_update(self, request, pk=None):
+        serializer = ShowSerializer(data=request.data)
+
+        # For common user and not owner of show: Permission denied
+        if not request.user.is_superuser and int(pk) not in list(request.user.shows.all().values_list('id', flat=True)):
+            return Response(serializer.initial_data, status=status.HTTP_401_UNAUTHORIZED)
+
+        if serializer.is_valid():
+            serializer.save();
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def destroy(self, request, pk=None):
+        '''Deleting is not allowed at the moment'''
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
+class APITimeSlotViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/timeslots                                            Returns nothing
+    /api/v1/timeslots/?show_id=1                                 Returns upcoming timeslots of a show 60 days in the future
+    /api/v1/timeslots/?show_id=1&start=2017-01-01&end=2017-02-01 Returns timeslots of a show within the given timerange
+
+    TODO: Test for permissions to show
+    """
+
+    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions] #, TokenHasReadWriteScope]
+    serializer_class = TimeSlotSerializer
+    queryset = TimeSlot.objects.all()
+    required_scopes = ['timeslots']
+
+
+    def list(self, request):
+        """Lists timeslots of a show"""
+
+        if request.GET.get('show_id') != None:
+            show_id = int(request.GET.get('show_id'))
+
+            if not request.user.is_superuser and show_id not in list(request.user.shows.all().values_list('id', flat=True)):
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            # Return next 60 days by default
+            start = datetime.combine(date.today(), time(0, 0))
+            end = start + timedelta(days=60)
+
+            if request.GET.get('start') and request.GET.get('end'):
+                start = datetime.combine( datetime.strptime(request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
+                end = datetime.combine( datetime.strptime(request.GET.get('end'), '%Y-%m-%d').date(), time(23, 59))
+
+            timeslots = TimeSlot.objects.filter(show=show_id, start__gte=start, end__lte=end).order_by('start')
+            serializer = TimeSlotSerializer(timeslots, many=True)
+
+            return Response(serializer.data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    def create(self, request):
+        return Response(status=HTTP_401_UNAUTHORIZED)
+
+
+    def partial_update(self, request, pk=None):
+        """Link a playlist_id to a timeslot"""
+
+        serializer = TimeSlotSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def destroy(self, request, pk=None):
+        """Deleting is not allowed at the moment"""
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
+
+class APINoteViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/notes/                Returns nothing
+    /ap1/v1/notes/1               Returns a single not (if owned)
+    /api/v1/notes/?ids=1,2,3,4,5  Returns given notes (if owned)
+
+    Superusers may access and update all notes
+    """
+
+    queryset = Note.objects.all()
+    serializer_class = NoteSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions] #, TokenHasReadWriteScope]
+    required_scopes = ['notes']
+
+
+    def list(self, request):
+        """Lists notes"""
+
+        if request.GET.get('ids') != None:
+            note_ids = request.GET.get('ids').split(',')
+            if request.user.is_superuser:
+                notes = Note.objects.filter(id__in=note_ids)
+            else:
+                # Common users only retrieve notes they own
+                notes = Note.objects.filter(id__in=note_ids,user=request.user.id)
+        else:
+           notes = Note.objects.none()
+
+        serializer = NoteSerializer(notes, many=True)
+        return Response(serializer.data)
+
+
+    def create(self, request):
+        """
+        Creates a note
+        TODO: Test!
+        """
+
+        # Only create a note if show_id and timeslot_id is given
+        if not int(validated_data.get('show_id')) and not int(validated_data.get('timeslot_id')):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = NoteSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def retrieve(self, request, pk=None):
+        """Returns a single note"""
+
+        if pk != None:
+            try:
+                note = Note.objects.get(pk=pk)
+            except ObjectDoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+            if not request.user.is_superuser and note.user_id != request.user.id:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            serializer = NoteSerializer(note)
+            return Response(serializer.data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    def partial_update(self, request, pk=None):
+        if pk != None:
+            pk = int(pk)
+            try:
+                note = Note.objects.get(pk=pk)
+            except ObjectDoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+            if not request.user.is_superuser and note.user_id != request.user.id:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            serializer = NoteSerializer(data=request.data)
+
+            if serializer.is_valid():
+                serializer.save();
+                return Response(serializer.data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+    def destroy(self, request, pk=None):
+        if pk != None:
+            pk = int(pk)
+            try:
+                note = Note.objects.get(pk=pk)
+            except ObjectDoesNotExist:
+                return Response(status.HTTP_404_NOT_FOUND)
+
+            if not request.user.is_superuser and note.user_id != request.user.id:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            Note.objects.delete(pk=pk)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)

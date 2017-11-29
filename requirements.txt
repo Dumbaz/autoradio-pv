@@ -5,3 +5,5 @@ PyYAML==3.12
 django-tinymce==2.6.0
 python-dateutil==2.6.0
 django-versatileimagefield==1.8.1
+djangorestframework
+django-oauth-toolkit

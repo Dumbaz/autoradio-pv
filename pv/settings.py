@@ -77,6 +77,23 @@ MIDDLEWARE_CLASSES = (
 
 ROOT_URLCONF = 'pv.urls'
 
+OAUTH2_PROVIDER = {
+    # this is the list of available scopes
+    'SCOPES': {'read': 'Read scope', 'write': 'Write scope', 'shows': 'Access to shows', 'notes': 'Access to notes', 'timeslots': 'Access to timeslots'}
+}
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+        #'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ],
+    'DEFAULT AUTHENTICATION_CLASSES': [
+        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+    ]
+}
+
 INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -90,15 +107,24 @@ INSTALLED_APPS = (
     'profile',
     'tinymce',
     'versatileimagefield',
+    'rest_framework',
+    'oauth2_provider',
 )
 
 THUMBNAIL_SIZES = ['200x200', '150x150']
 
-TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
+#TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
 TINYMCE_DEFAULT_CONFIG = {
-    'plugins': 'contextmenu',
+    #'plugins': 'contextmenu',
+    'selector': 'textarea',
     'theme': 'advanced',
     'theme_advanced_toolbar_location': 'top',
+    'theme_advanced_buttons1' : 'bold,italic,underline,separator,bullist,numlist,separator,link,unlink,separator,undo,redo,separator,formatselect',
+    'theme_advanced_blockformats': 'p,h1,h2,h3,blockquote',
+    'theme_advanced_font_sizes': '14px,16px',
+    'cleanup_on_startup': True,
+    'width': 620,
+    'height': 400,
 }
 
 CACHE_BACKEND = 'locmem://'

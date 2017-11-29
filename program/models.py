@@ -566,6 +566,7 @@ class TimeSlot(models.Model):
     show = models.ForeignKey(Show, editable=False, related_name='timeslots')
     memo = models.TextField(_("Memo"), blank=True)
     is_repetition = models.BooleanField(_("WH"), default=False)
+    playlist_id = models.IntegerField(_("Playlist ID"), null=True)
 
     objects = TimeSlotManager()
 
@@ -604,7 +605,7 @@ class Note(models.Model):
     timeslot = models.OneToOneField(TimeSlot, verbose_name=_("Time slot"), unique=True)
     title = models.CharField(_("Title"), max_length=128, help_text=_("Give your note a good headline. What will your upcoming show be about? Try to arouse interest to listen to it!<br>Avoid technical data like the show's name, its airing times or its episode number. These data are added automatically."))
     slug = models.SlugField(_("Slug"), max_length=32, unique=True, help_text=_("A simple to read URL for your show."))
-    summary = tinymce_models.HTMLField(_("Summary"), blank=True, help_text=_("Describe your upcoming show in some sentences. Avoid technical data like airing times and contact information. They will be added automatically."))
+    summary = models.TextField(_("Summary"), blank=True, help_text=_("Describe your upcoming show in some sentences. Avoid technical data like airing times and contact information. They will be added automatically."))
     content = tinymce_models.HTMLField(_("Content"), help_text=_("Describe your upcoming show in detail."))
     ppoi = PPOIField('Image PPOI')
     height = models.PositiveIntegerField('Image Height', blank=True, null=True, editable=False)

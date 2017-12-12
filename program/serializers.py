@@ -2,7 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.models import User
 from rest_framework import serializers, status
 from rest_framework.response import Response
-from program.models import Show, TimeSlot, Category, Host, Language, Topic, MusicFocus, Note
+from program.models import Show, Schedule, TimeSlot, Category, RTRCategory, Host, Language, Topic, MusicFocus, Note, Type, Language
 from profile.models import Profile
 
 
@@ -78,6 +78,25 @@ class MusicFocusSerializer(serializers.ModelSerializer):
         model = MusicFocus
         fields = '__all__'
 
+
+class TypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Type
+        fields = '__all__'
+
+
+class RTRCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RTRCategory
+        fields = '__all__'
+
+
+'''
+class OwnersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Owners
+        fields = '__all__'
+'''
 
 class ShowSerializer(serializers.HyperlinkedModelSerializer):
     category = CategorySerializer(many=True)

@@ -2,6 +2,7 @@ django.jQuery(document).ready( function() {
 
    /* Get the already saved timeslot_id to preserve if past */
    var selected_timeslot_id = django.jQuery('select#id_timeslot option:selected').val() || 0;
+   var selected_timeslot_val = django.jQuery('select#id_timeslot option:selected').text() || ''
 
 	/* If a show is selected load its timeslots into the corresponding select */
 	django.jQuery("select#id_show").on("change", function() {
@@ -17,19 +18,25 @@ django.jQuery(document).ready( function() {
 
 	   /* Call ajax function and retrieve array containing objects */
 	   django.jQuery.ajax({
-            url: '/export/get_timeslots_by_show',
+            url: '/api/v1/timeslots/',
             type: 'GET',
             data: {
               'show_id': show_id,
-              'timeslot_id': selected_timeslot_id,
               'csrfmiddlewaretoken': django.jQuery('input[name="csrfmiddlewartetoken"]').val()
             },
             success: function(timeslots) {
 	            /* Populate timeslot select */
 	            var options = new Array();
+	            i = 0;
 
-	            for( var i=0; i < timeslots.length; i++ ) {
-	               options[i] = new Option( timeslots[i].timeslot, parseInt(timeslots[i].timeslot_id) ); //+ " " + moment.utc( timeslots[i].start ).format('dddd, D.M. YYYY HH:mm') + ' - ' + moment.utc( timeslots[i].end ).format('HH:mm'), timeslots[i].timeslot_id );
+	            // Preserve an already selected timeslot
+	            if( selected_timeslot_id > 0 ) {
+	            	options[0] = new Option( selected_timeslot_val, selected_timeslot_id );
+	            	i = 1;
+	            }
+
+	            for( var i=i; i < timeslots.length; i++ ) {
+	               options[i] = new Option( moment.utc( timeslots[i].start ).format('dd, D.M. YYYY HH:mm') + ' - ' + moment.utc( timeslots[i].end ).format('HH:mm'), parseInt(timeslots[i].id) );
 	            }
 
 	            django.jQuery('select#id_timeslot').html( options ).fadeIn();

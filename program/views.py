@@ -14,15 +14,13 @@ from django.views.generic.list import ListView
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import detail_route, list_route
 
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope, TokenHasScope
 
-from program.models import Type, MusicFocus, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host
+from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule
 from profile.models import Profile
-from program.serializers import ShowSerializer, TimeSlotSerializer, UserSerializer, NoteSerializer
+from program.serializers import TypeSerializer, LanguageSerializer, MusicFocusSerializer, NoteSerializer, ShowSerializer, CategorySerializer, RTRCategorySerializer, TopicSerializer, TimeSlotSerializer, HostSerializer, UserSerializer
 from program.utils import tofirstdayinisoweek, get_cached_shows
-
 
 class CalendarView(TemplateView):
     template_name = 'calendar.html'
@@ -562,7 +560,7 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
 class APINoteViewSet(viewsets.ModelViewSet):
     """
     /api/v1/notes/                Returns nothing
-    /ap1/v1/notes/1               Returns a single not (if owned)
+    /ap1/v1/notes/1               Returns a single note (if owned)
     /api/v1/notes/?ids=1,2,3,4,5  Returns given notes (if owned)
 
     Superusers may access and update all notes
@@ -662,3 +660,89 @@ class APINoteViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class APICategoryViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['categories']
+
+
+
+class APITypeViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Type.objects.all()
+    serializer_class = TypeSerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['types']
+
+
+
+class APITopicViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Topic.objects.all()
+    serializer_class = TopicSerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['topics']
+
+
+
+class APIMusicFocusViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = MusicFocus.objects.all()
+    serializer_class = MusicFocusSerializer
+    permission_classes = [permissions.IsAdminUser
+    required_scopes = ['musicfocus']
+
+
+
+class APIRTRCategoryViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = RTRCategory.objects.all()
+    serializer_class = RTRCategorySerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['rtrcategories']
+
+
+class APILanguageViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Language.objects.all()
+    serializer_class = LanguageSerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['languages']
+
+
+class APIHostViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Host.objects.all()
+    serializer_class = HostSerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['hosts']
+
+
+'''
+class APIOwnersViewSet(viewsets.ModelViewSet):
+    """
+    """
+
+    queryset = Owners.objects.all()
+    serializer_class = OwnersSerializer
+    permission_classes = [permissions.IsAdminUser]
+    required_scopes = ['owners']
+'''

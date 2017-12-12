@@ -109,9 +109,10 @@ INSTALLED_APPS = (
     'versatileimagefield',
     'rest_framework',
     'oauth2_provider',
+    'frapp',
 )
 
-THUMBNAIL_SIZES = ['200x200', '150x150']
+THUMBNAIL_SIZES = ['640x480', '200x200', '150x150']
 
 #TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
 TINYMCE_DEFAULT_CONFIG = {
@@ -133,6 +134,20 @@ MUSIKPROG_IDS = (
     1,    # unmodieriertes musikprogramm
 )
 SPECIAL_PROGRAM_IDS = ()
+
+# URL to CBA - Cultural Broadcasting Archive
+CBA_URL = 'https://cba.fro.at'
+
+# Contact cba@fro.at to be whitelisted and get an API KEY
+# Leave empty to disable requests to CBA
+CBA_API_KEY = ''
+
+# URL to CBA ajax handler (used for retrieving additional data or increasing stream counter)
+CBA_AJAX_URL = CBA_URL + '/wp-admin/admin-ajax.php'
+
+# URL to CBA's REST API with trailing slash
+CBA_REST_API_URL = CBA_URL + '/wp-json/wp/v2/'
+
 
 try:
     from .local_settings import *

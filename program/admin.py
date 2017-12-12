@@ -145,6 +145,30 @@ class NoteAdmin(admin.ModelAdmin):
         # Save the creator when adding a note
         if not change:
             obj.user = request.user
+
+        obj.audio_url = ''
+
+        # Retrieve the direct URL to the mp3 in CBA
+        # In order to retrieve the URL, stations need
+        #   - to be whitelisted by CBA
+        #   - an API Key
+        #
+        # Therefore contact cba@fro.at
+        from pv.settings import CBA_AJAX_URL, CBA_API_KEY
+
+        if obj.cba_id != '' and CBA_API_KEY != '':
+            from urllib.request import urlopen
+            import json
+
+            url = CBA_AJAX_URL + '?action=cba_ajax_get_filename&post_id=' + str(obj.cba_id) + '&api_key=' + CBA_API_KEY
+
+            # For momentary testing without being whitelisted - TODO: delete the line
+            url = 'https://cba.fro.at/wp-content/plugins/cba/ajax/cba-get-filename.php?post_id=' + str(obj.cba_id) + '&c=Ml3fASkfwR8'
+
+            with urlopen(url) as conn:
+                audio_url = conn.read().decode('utf-8-sig')
+                obj.audio_url = json.loads(audio_url)
+
         obj.save()
 
 

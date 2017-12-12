@@ -35,6 +35,7 @@ urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^program/', include('program.urls')),
     url(r'^nop', include('nop.urls')),
+    url(r'^', include('frapp.urls')),
     #url(r'^tinymce/', include('tinymce.urls')),
     url(r'^export/day_schedule/(?P<year>\d{4})/(?P<month>\d{1,2})/(?P<day>\d{1,2})/$', json_day_schedule),
     url(r'^export/timeslots_specials.json$', json_timeslots_specials),

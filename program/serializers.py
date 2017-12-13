@@ -4,12 +4,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from program.models import Show, Schedule, TimeSlot, Category, RTRCategory, Host, Language, Topic, MusicFocus, Note, Type, Language
 from profile.models import Profile
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = '__all__'
+from profile.serializers import ProfileSerializer
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -31,16 +26,8 @@ class UserSerializer(serializers.ModelSerializer):
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.email = validated_data.get('email', instance.email)
 
+        # TODO: How to hook into this from ProfileSerializer without having to call it here?
         profile = Profile.objects.get(user=instance.id)
-        profile.biography = validated_data['profile'].get('biography')
-        profile.website = validated_data['profile'].get('website')
-        profile.googleplus_url = validated_data['profile'].get('googleplus_url')
-        profile.facebook_url = validated_data['profile'].get('facebook_url')
-        profile.twitter_url = validated_data['profile'].get('twitter_url')
-        profile.linkedin_url = validated_data['profile'].get('linkedin_url')
-        profile.youtube_url = validated_data['profile'].get('youtube_url')
-        profile.dorftv_url = validated_data['profile'].get('dorftv_url')
-        profile.cba_url = validated_data['profile'].get('cba_url')
         profile.cba_username = validated_data['profile'].get('cba_username')
         profile.cba_user_token = validated_data['profile'].get('cba_user_token')
         profile.save()
@@ -59,6 +46,27 @@ class HostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Host
         fields = '__all__'
+
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Host instance, given the validated data.
+        """
+        instance.name = validated_data.get('name', instance.name)
+        instance.is_always_visible = validated_data.get('is_always_visible', instance.is_always_visible)
+        instance.email = validated_data.get('email', instance.email)
+        instance.website = validated_data.get('website', instance.website)
+        instance.biography = validated_data.get('biography', instance.biography)
+        instance.googleplus_url = validated_data.get('googleplus_url', instance.googleplus_url)
+        instance.facebook_url = validated_data.get('facebook_url', instance.facebook_url)
+        instance.twitter_url = validated_data.get('twitter_url', instance.twitter_url)
+        instance.linkedin_url = validated_data.get('linkedin_url', instance.linkedin_url)
+        instance.youtube_url = validated_data.get('youtube_url', instance.youtube_url)
+        instance.dorftv_url = validated_data.get('dorftv_url', instance.dorftv_url)
+        instance.cba_url = validated_data.get('cba_url', instance.cba_url)
+        instance.image = validated_data.get('image', instance.image)
+
+        instance.save()
+        return instance
 
 
 class LanguageSerializer(serializers.ModelSerializer):

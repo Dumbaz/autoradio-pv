@@ -81,7 +81,7 @@ class RTRCategoryAdmin(admin.ModelAdmin):
 
 
 class HostAdmin(admin.ModelAdmin):
-    list_display = ('name',)
+    list_display = ('name','email',)
     list_filter = (ActiveHostsFilter, 'is_always_visible',)
 
 

@@ -243,7 +243,19 @@ class Host(models.Model):
     name = models.CharField(_("Name"), max_length=128)
     is_always_visible = models.BooleanField(_("Is always visible"), default=False)
     email = models.EmailField(_("E-Mail"), blank=True)
-    website = models.URLField(_("Website"), blank=True)
+    website = models.URLField(_("Website"), blank=True, help_text=_("URL to your personal website."))
+    biography = tinymce_models.HTMLField(_("Biography"), blank=True, null=True, help_text=_("Describe yourself and your fields of interest in a few sentences."))
+    googleplus_url = models.URLField(_("Google+ URL"), blank=True, help_text=_("URL to your Google+ profile."))
+    facebook_url = models.URLField(_("Facebook URL"), blank=True, help_text=_("URL to your Facebook profile."))
+    twitter_url = models.URLField(_("Twitter URL"), blank=True, help_text=_("URL to your Twitter profile."))
+    linkedin_url = models.URLField(_("LinkedIn URL"), blank=True, help_text=_("URL to your LinkedIn profile."))
+    youtube_url = models.URLField(_("Youtube URL"), blank=True, help_text=_("URL to your Youtube channel."))
+    dorftv_url = models.URLField(_("DorfTV URL"), blank=True, help_text=_("URL to your dorfTV channel."))
+    cba_url = models.URLField(_("CBA URL"), blank=True, help_text=_("URL to your CBA profile."))
+    ppoi = PPOIField('Image PPOI')
+    height = models.PositiveIntegerField('Image Height', blank=True, null=True, editable=False)
+    width = models.PositiveIntegerField('Image Width', blank=True, null=True,editable=False)
+    image = VersatileImageField(_("Profile picture"), blank=True, null=True, upload_to='user_images', width_field='width', height_field='height', ppoi_field='ppoi', help_text=_("Upload a picture of yourself. Images are automatically cropped around the 'Primary Point of Interest'. Click in the image to change it and press Save."))
 
     class Meta:
         ordering = ('name',)
@@ -258,6 +270,14 @@ class Host(models.Model):
 
     def active_shows(self):
         return self.shows.filter(schedules__until__gt=datetime.today())
+
+    def save(self, *args, **kwargs):
+        super(Host, self).save(*args, **kwargs)
+
+        # Generate thumbnails
+        if self.image.name and settings.THUMBNAIL_SIZES:
+            for size in settings.THUMBNAIL_SIZES:
+                thumbnail = self.image.crop[size].name
 
 
 class Show(models.Model):
@@ -567,7 +587,7 @@ class TimeSlot(models.Model):
     end = models.DateTimeField(_("End time"))
     show = models.ForeignKey(Show, editable=False, related_name='timeslots')
     memo = models.TextField(_("Memo"), blank=True)
-    is_repetition = models.BooleanField(_("WH"), default=False)
+    is_repetition = models.BooleanField(_("REP"), default=False)
     playlist_id = models.IntegerField(_("Playlist ID"), null=True)
 
     objects = TimeSlotManager()
@@ -580,7 +600,7 @@ class TimeSlot(models.Model):
     def __str__(self):
         start = self.start.strftime('%a, %d.%m.%Y %H:%M')
         end = self.end.strftime('%H:%M')
-        is_repetition = ' ' + _('WH') if self.schedule.is_repetition is 1 else ''
+        is_repetition = ' ' + _('REP') if self.schedule.is_repetition is 1 else ''
 
         return '%s - %s  %s (%s)' % (start, end, is_repetition, self.show.name)
 

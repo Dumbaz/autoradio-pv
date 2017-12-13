@@ -1,6 +1,7 @@
 import json
 from datetime import date, datetime, time
 
+from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from django.contrib.sites.shortcuts import get_current_site
@@ -104,15 +105,29 @@ def json_frapp(request):
         image = '' if s.image.name == None else str(get_current_site(request)) + MEDIA_URL + s.image.name
         url = '' if s.website == None else s.website
 
-        schedules = Schedule.objects.filter(show=s.id,is_repetition=False)
-        schedules_repetition = Schedule.objects.filter(show=s.id,is_repetition=True)
+        # Get active schedules for the given date
+        # But include upcoming single timeslots (with rrule_id=1)
+        schedules = Schedule.objects.filter( Q(show=s.id,is_repetition=False) &
+                                             (
+                                               Q(rrule_id__gt=1,dstart__lte=start,until__gte=start) |
+                                               Q(rrule_id=1,dstart__gte=start)
+                                             )
+                                           )
+
+        schedules_repetition = Schedule.objects.filter( Q(show=s.id,is_repetition=True) &
+                                             (
+                                               Q(rrule_id__gt=1,dstart__lte=start,until__gte=start) |
+                                               Q(rrule_id=1,dstart__gte=start)
+                                             )
+                                           )
+
         broadcastinfos = ''
 
-        if schedules.exists():
-            for schedule in schedules:
-                broadcastinfos = broadcastinfos + generate_frapp_broadcastinfos(schedule)
-        else:
+        if not schedules.exists():
             continue
+
+        for schedule in schedules:
+            broadcastinfos = broadcastinfos + generate_frapp_broadcastinfos(schedule)
 
         if schedules_repetition.exists():
             broadcastinfos = broadcastinfos + 'Wiederholung jeweils:'
@@ -152,7 +167,7 @@ def json_frapp(request):
             namedisplay = note.title + is_repetition
             description = note.content
             url = str(get_current_site(request)) + '/notes/' + note.slug
-
+            urlmp3 = note.audio_url
         except ObjectDoesNotExist:
             pass
 
@@ -164,7 +179,7 @@ def json_frapp(request):
             'namedisplay': namedisplay,
             'description': description,
             'url': url,
-            'urlmp3': note.audio_url,
+            'urlmp3': urlmp3,
         }
 
         shows_output.append(ts_entry)

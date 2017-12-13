@@ -246,7 +246,7 @@ def json_week_schedule(request):
     schedule = []
     for ts in timeslots:
 
-        is_repetition = ' ' + _('WH') if ts.schedule.is_repetition is 1 else ''
+        is_repetition = ' ' + _('REP') if ts.schedule.is_repetition is 1 else ''
 
         hosts = ', '.join(ts.show.hosts.values_list('name', flat=True))
         categories = ', '.join(ts.show.category.values_list('category', flat=True))
@@ -701,7 +701,7 @@ class APIMusicFocusViewSet(viewsets.ModelViewSet):
 
     queryset = MusicFocus.objects.all()
     serializer_class = MusicFocusSerializer
-    permission_classes = [permissions.IsAdminUser
+    permission_classes = [permissions.IsAdminUser]
     required_scopes = ['musicfocus']
 
 

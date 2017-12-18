@@ -13,8 +13,24 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        exclude = ('password',)
-        #fields = '__all__'
+        fields = '__all__'
+
+
+    def create(self, validated_data):
+        """
+        Create and return a new User instance, given the validated data.
+        """
+
+        profile_data = validated_data.pop('profile')
+        user = super(UserSerializer, self).create(validated_data)
+        user.date_joined = datetime.today()
+        user.set_password(validated_data['password'])
+        user.save()
+
+        profile = Profile(user=user, cba_username=profile_data.get('cba_username'), cba_user_token=profile_data.get('cba_user_token'))
+        profile.save()
+
+        return user
 
 
     def update(self, instance, validated_data):
@@ -27,7 +43,11 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email', instance.email)
 
         # TODO: How to hook into this from ProfileSerializer without having to call it here?
-        profile = Profile.objects.get(user=instance.id)
+        try:
+            profile = Profile.objects.get(user=instance.id)
+        except ObjectDoesNotExist:
+            profile = Profile.objects.create(user=instance, **validated_data['profile'])
+
         profile.cba_username = validated_data['profile'].get('cba_username')
         profile.cba_user_token = validated_data['profile'].get('cba_user_token')
         profile.save()
@@ -36,10 +56,25 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+
+
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Category instance, given the validated data.
+        """
+        instance.category = validated_data.get('category', instance.category)
+        instance.abbrev = validated_data.get('abbrev', instance.abbrev)
+        instance.slug = validated_data.get('slug', instance.slug)
+        instance.color = validated_data.get('color', instance.color)
+        instance.description = validated_data.get('description', instance.description)
+
+        instance.save()
+        return instance
 
 
 class HostSerializer(serializers.ModelSerializer):
@@ -47,10 +82,13 @@ class HostSerializer(serializers.ModelSerializer):
         model = Host
         fields = '__all__'
 
+
     def update(self, instance, validated_data):
         """
         Update and return an existing Host instance, given the validated data.
         """
+
+        # TODO: Still put this into a sub app?
         instance.name = validated_data.get('name', instance.name)
         instance.is_always_visible = validated_data.get('is_always_visible', instance.is_always_visible)
         instance.email = validated_data.get('email', instance.email)
@@ -75,10 +113,32 @@ class LanguageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Language instance, given the validated data.
+        """
+        instance.name = validated_data.get('name', instance.name)
+
+        instance.save()
+        return instance
+
+
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
         fields = '__all__'
+
+
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Topic instance, given the validated data.
+        """
+        instance.topic = validated_data.get('topic', instance.topic)
+        instance.abbrev = validated_data.get('abbrev', instance.abbrev)
+        instance.slug = validated_data.get('slug', instance.slug)
+
+        instance.save()
+        return instance
 
 
 class MusicFocusSerializer(serializers.ModelSerializer):
@@ -87,10 +147,36 @@ class MusicFocusSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing MusicFocus instance, given the validated data.
+        """
+        instance.focus = validated_data.get('focus', instance.focus)
+        instance.abbrev = validated_data.get('abbrev', instance.abbrev)
+        instance.slug = validated_data.get('slug', instance.slug)
+
+        instance.save()
+        return instance
+
+
 class TypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Type
         fields = '__all__'
+
+
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Type instance, given the validated data.
+        """
+        instance.type = validated_data.get('type', instance.type)
+        instance.slug = validated_data.get('slug', instance.slug)
+        instance.color = validated_data.get('color', instance.color)
+        instance.text_color = validated_data.get('text_color', instance.text_color)
+        instance.enabled = validated_data.get('enabled', instance.enabled)
+
+        instance.save()
+        return instance
 
 
 class RTRCategorySerializer(serializers.ModelSerializer):
@@ -99,12 +185,25 @@ class RTRCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing RTRCategory instance, given the validated data.
+        """
+        instance.rtrcategory = validated_data.get('rtrcategory', instance.rtrcategory)
+        instance.abbrev = validated_data.get('abbrev', instance.abbrev)
+        instance.slug = validated_data.get('slug', instance.slug)
+
+        instance.save()
+        return instance
+
+
 '''
 class OwnersSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owners
         fields = '__all__'
 '''
+
 
 class ShowSerializer(serializers.HyperlinkedModelSerializer):
     category = CategorySerializer(many=True)
@@ -143,7 +242,28 @@ class ShowSerializer(serializers.HyperlinkedModelSerializer):
         instance.website = validated_data.get('website', instance.website)
         instance.cba_series_id = validated_data.get('cba_series_id', instance.cba_series_id)
         instance.fallback_pool = validated_data.get('fallback_pool', instance.fallback_pool)
+
         instance.save()
+        return instance
+
+
+# TODO: collision detection
+class ScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Schedule
+        fields = '__all__'
+
+    def create(self, validated_data):
+        """
+        Create and return a new Schedule instance, given the validated data.
+        """
+        return Schedule.objects.create(**validated_data)
+
+
+    def update(self, instance, validated_data):
+        """
+        Update and return an existing Schedule instance, given the validated data.
+        """
         return instance
 
 
@@ -151,7 +271,6 @@ class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeSlot
         fields = '__all__'
-
 
     def create(self, validated_data):
         """
@@ -177,7 +296,6 @@ class NoteSerializer(serializers.ModelSerializer):
         model = Note
         fields = '__all__'
 
-
     def create(self, validated_data):
         """
         Create and return a new Note instance, given the validated data.
@@ -200,5 +318,6 @@ class NoteSerializer(serializers.ModelSerializer):
         instance.image = validated_data.get('image', instance.image)
         instance.status = validated_data.get('status', instance.status)
         instance.cba_id = validated_data.get('cba_id', instance.cba_id)
+
         instance.save()
         return instance

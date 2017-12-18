@@ -77,11 +77,6 @@ MIDDLEWARE_CLASSES = (
 
 ROOT_URLCONF = 'pv.urls'
 
-OAUTH2_PROVIDER = {
-    # this is the list of available scopes
-    'SCOPES': {'read': 'Read scope', 'write': 'Write scope', 'shows': 'Access to shows', 'notes': 'Access to notes', 'timeslots': 'Access to timeslots'}
-}
-
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
@@ -90,7 +85,6 @@ REST_FRAMEWORK = {
         #'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
     ],
     'DEFAULT AUTHENTICATION_CLASSES': [
-        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     ]
 }
 
@@ -108,7 +102,6 @@ INSTALLED_APPS = (
     'tinymce',
     'versatileimagefield',
     'rest_framework',
-    'oauth2_provider',
     'frapp',
 )
 

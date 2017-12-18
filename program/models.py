@@ -255,7 +255,7 @@ class Host(models.Model):
     ppoi = PPOIField('Image PPOI')
     height = models.PositiveIntegerField('Image Height', blank=True, null=True, editable=False)
     width = models.PositiveIntegerField('Image Width', blank=True, null=True,editable=False)
-    image = VersatileImageField(_("Profile picture"), blank=True, null=True, upload_to='user_images', width_field='width', height_field='height', ppoi_field='ppoi', help_text=_("Upload a picture of yourself. Images are automatically cropped around the 'Primary Point of Interest'. Click in the image to change it and press Save."))
+    image = VersatileImageField(_("Profile picture"), blank=True, null=True, upload_to='host_images', width_field='width', height_field='height', ppoi_field='ppoi', help_text=_("Upload a picture of yourself. Images are automatically cropped around the 'Primary Point of Interest'. Click in the image to change it and press Save."))
 
     class Meta:
         ordering = ('name',)
@@ -320,6 +320,19 @@ class Show(models.Model):
     # Called by show templates
     def active_schedules(self):
         return self.schedules.filter(until__gt=date.today())
+
+    def is_editable(self, show_id):
+        """
+        Whether the current user can edit the given show
+        @return boolean
+        """
+        if self.request.user.is_superuser:
+            show_ids = Show.objects.all().values_list('id', flat=True)
+        else:
+            show_ids = self.request.user.shows.all().values_list('id', flat=True)
+
+        return int(show_id) in show_ids
+
 
 
 class RRule(models.Model):

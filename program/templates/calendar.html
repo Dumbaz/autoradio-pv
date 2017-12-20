@@ -147,7 +147,7 @@
           },
           weekNumberCalculation: 'ISO', // Week begins with Monday
           firstDay: 1, // Week begins with Monday
-          events: '/api/v1/week_schedule',
+          events: '/api/v1/program/week',
           eventRender: function(event, element) {
              element.find('.fc-content').append( '<span class="closeon">X</span>' );
              element.find('.closeon').click(function() {

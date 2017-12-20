@@ -312,6 +312,9 @@ class Show(models.Model):
         verbose_name_plural = _("Shows")
 
     def __str__(self):
+        if self.id == None:
+            return '%s' % (self.name)
+
         return '%04d | %s' % (self.id, self.name)
 
     def get_absolute_url(self):
@@ -327,12 +330,10 @@ class Show(models.Model):
         @return boolean
         """
         if self.request.user.is_superuser:
-            show_ids = Show.objects.all().values_list('id', flat=True)
+            return True
         else:
             show_ids = self.request.user.shows.all().values_list('id', flat=True)
-
-        return int(show_id) in show_ids
-
+            return int(show_id) in show_ids
 
 
 class RRule(models.Model):
@@ -530,7 +531,6 @@ class Schedule(models.Model):
         # TODO: Test if auto_now_add and auto_now really always work
         #if not self.id or self.id == None:
         #    self.created = datetime.today()
-
         super(Schedule, self).save(*args, **kwargs)
 
 
@@ -662,6 +662,36 @@ class Note(models.Model):
 
     def __str__(self):
         return '%s - %s' % (self.title, self.timeslot)
+
+    def get_audio_url(cba_id):
+        """
+        Retrieve the direct URL to the mp3 in CBA
+        In order to retrieve the URL, stations need
+           - to be whitelisted by CBA
+           - an API Key
+
+        Therefore contact cba@fro.at
+        """
+
+        from pv.settings import CBA_AJAX_URL, CBA_API_KEY
+
+        audio_url = ''
+
+        if cba_id != '' and CBA_API_KEY != '':
+            from urllib.request import urlopen
+            import json
+
+            url = CBA_AJAX_URL + '?action=cba_ajax_get_filename&post_id=' + str(cba_id) + '&api_key=' + CBA_API_KEY
+
+            # For momentary testing without being whitelisted - TODO: delete the line
+            url = 'https://cba.fro.at/wp-content/plugins/cba/ajax/cba-get-filename.php?post_id=' + str(cba_id) + '&c=Ml3fASkfwR8'
+
+            with urlopen(url) as conn:
+                audio_url_json = conn.read().decode('utf-8-sig')
+                audio_url = json.loads(audio_url_json)
+
+        return audio_url
+
 
     def save(self, *args, **kwargs):
         self.start = self.timeslot.start

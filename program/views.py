@@ -4,7 +4,6 @@ from datetime import date, datetime, time, timedelta
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
-from django.forms.models import model_to_dict
 from django.contrib.auth.models import User
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -14,7 +13,6 @@ from django.views.generic.list import ListView
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import detail_route
 
 from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule
 from program.serializers import TypeSerializer, LanguageSerializer, MusicFocusSerializer, NoteSerializer, ShowSerializer, ScheduleSerializer, CategorySerializer, RTRCategorySerializer, TopicSerializer, TimeSlotSerializer, HostSerializer, UserSerializer
@@ -329,13 +327,13 @@ def json_timeslots_specials(request):
 
 class APIUserViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/users   Returns oneself - Superusers see all users
-    /api/v1/users/1 Used for retrieving or updating a single user
+    /api/v1/users   Returns oneself - Superusers see all users (GET, POST)
+    /api/v1/users/1 Used for retrieving or updating a single user (GET, PUT, DELETE)
 
     Superusers may access and update all users
     """
 
-    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = UserSerializer
     queryset = User.objects.none()
     required_scopes = ['users']
@@ -357,23 +355,42 @@ class APIUserViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, pk=None):
         """Returns a single user"""
-        user = get_object_or_404(User, pk=pk)
 
         # Common users may only see themselves
-        if not request.user.is_superuser and user.id != request.user.id:
+        if not request.user.is_superuser and int(pk) != request.user.id:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+        user = get_object_or_404(User, pk=pk)
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
 
-    def partial_update(self, request, pk=None):
+    def create(self, request, pk=None):
+        """
+        Create a User
+        Only superusers may create a user
+        """
+
+        if not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = UserSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def update(self, request, pk=None):
 
         # Common users may only edit themselves
         if not request.user.is_superuser and int(pk) != request.user.id:
             return Response(serializer.initial_data, status=status.HTTP_401_UNAUTHORIZED)
 
-        serializer = UserSerializer(data=request.data)
+        user = get_object_or_404(User, pk=pk)
+        serializer = UserSerializer(user, data=request.data, context={ 'user': request.user })
 
         if serializer.is_valid():
             serializer.save();
@@ -383,27 +400,25 @@ class APIUserViewSet(viewsets.ModelViewSet):
 
 
 
-
 class APIShowViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/shows/                                             Returns shows a user owns
-    /api/v1/shows/?active=true                                 Returns all active shows (no matter if owned by user)
-    /api/v1/shows/1                                            Used for retrieving a single show or update (if owned)
-    /api/v1/shows/1/schedules                                  Returns all schedules for the given show
-    /api/v1/shows/1/timeslots                                  Returns all timeslots for the given show
-    /api/v1/shows/1/timeslots?start=2017-01-01&end=2017-12-31  Returns all timeslots for the given show
+    /api/v1/shows/                                             Returns shows a user owns (GET, POST)
+    /api/v1/shows/?active=true                                 Returns all active shows (no matter if owned by user) (GET)
+    /api/v1/shows/1                                            Used for retrieving a single show or update (if owned) (GET, PUT, DELETE)
+    /api/v1/shows/1/schedules                                  Returns all schedules of the show (GET, POST)
+    /api/v1/shows/1/timeslots                                  Returns all timeslots of the show (GET) - Timeslots may only be added by creating/updating a schedule
+    /api/v1/shows/1/timeslots?start=2017-01-01&end=2017-12-31  Returns all timeslots of the show within the given timerange (GET)
 
-    Superusers may access and update all shows
+    Only superusers may add and delete shows
     """
 
     queryset = Show.objects.none()
     serializer_class = ShowSerializer
-    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['shows']
 
 
     def get_queryset(self):
-        """Constrain access to owners except for superusers"""
 
         if self.request.GET.get('active') == 'true':
             '''Filter for retrieving currently running shows'''
@@ -416,49 +431,32 @@ class APIShowViewSet(viewsets.ModelViewSet):
 
             return Show.objects.filter(id__in=schedules)
 
-        if self.request.user.is_superuser:
-            return Show.objects.all()
-        else:
-            return self.request.user.shows.all()
-
-
-    @detail_route(methods=['get'], url_path='schedules')
-    def schedules(self, request, pk=None):
-        """Return all schedules of the show"""
-        show = get_object_or_404(Show, pk=pk)
-        schedules = Schedule.objects.filter(show=show)
-        serializer = ScheduleSerializer(schedules, many=True)
-        return Response(serializer.data)
-
-
-    @detail_route(methods=['get'], url_path='timeslots')
-    def timeslots(self, request, pk=None):
-        """Return timeslots of the show for the next 60 days or the given timerange"""
-        show = get_object_or_404(Show, pk=pk)
-
-        # Return next 60 days by default
-        start = datetime.combine(date.today(), time(0, 0))
-        end = start + timedelta(days=60)
-
-        if self.request.GET.get('start') and self.request.GET.get('end'):
-            start = datetime.combine( datetime.strptime(self.request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
-            end = datetime.combine( datetime.strptime(self.request.GET.get('end'), '%Y-%m-%d').date(), time(23, 59))
-
-        timeslots = TimeSlot.objects.filter(show=show, start__gte=start, end__lte=end).order_by('start')
-        serializer = TimeSlotSerializer(timeslots, many=True)
-        return Response(serializer.data)
+        return Show.objects.all()
 
 
     def list(self, request):
-        """Lists shows"""
+        """List shows"""
         shows = self.get_queryset()
         serializer = ShowSerializer(shows, many=True)
         return Response(serializer.data)
 
 
-    def create(self, request):
-        """Create is not allowed at the moment"""
-        return Response(status=status.HTTP_401_UNAUTHORIZED)
+    def create(self, request, pk=None):
+        """
+        Create a show
+        Only superusers may create a show
+        """
+
+        if not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = ShowSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
     def retrieve(self, request, pk=None):
@@ -468,12 +466,17 @@ class APIShowViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    def partial_update(self, request, pk=None):
-        serializer = ShowSerializer(data=request.data)
+    def update(self, request, pk=None):
+        """
+        Update a show
+        Common users may only update shows they own
+        """
 
-        # For common user and not owner of show: Permission denied
         if not Show.is_editable(self, pk):
-            return Response(serializer.initial_data, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        show = get_object_or_404(Show, pk=pk)
+        serializer = ShowSerializer(show, data=request.data, context={ 'user': request.user })
 
         if serializer.is_valid():
             serializer.save();
@@ -482,21 +485,137 @@ class APIShowViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class APITimeSlotViewSet(viewsets.ModelViewSet):
+    def destroy(self, request, pk=None):
+        """
+        Delete a show
+        Only superusers may delete shows
+        """
+
+        if not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        show = get_object_or_404(Show, pk=pk)
+        Show.objects.delete(pk=pk)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+class APIScheduleViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/timeslots                                            Returns timeslots of the next 60 days
-    /api/v1/timeslots/?start=2017-01-01&end=2017-02-01           Returns timeslots within the given timerange
-    /api/v1/timeslots/?show_id=1                                 Returns upcoming timeslots of a show 60 days in the future
-    /api/v1/timeslots/?show_id=1&start=2017-01-01&end=2017-02-01 Returns timeslots of a show within the given timerange
+    /api/v1/schedules/          Returns schedules (GET) - POST not allowed at this level
+    /api/v1/schedules/1         Returns the given schedule (GET) - POST not allowed at this level
+    /api/v1/shows/1/schedules   Returns schedules of the show (GET, POST)
+    /api/v1/shows/1/schedules/1 Returns schedules by its ID (GET, PUT, DELETE)
+
+    Only superusers may create and update schedules
     """
 
-    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions]
+    queryset = Schedule.objects.none()
+    serializer_class = ScheduleSerializer
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    required_scopes = ['schedules']
+
+
+    def get_queryset(self):
+        show_pk = self.kwargs['show_pk'] if 'show_pk' in self.kwargs else None
+
+        if show_pk != None:
+            return Schedule.objects.filter(show=show_pk)
+
+        return Schedule.objects.all()
+
+
+    def list(self, request, show_pk=None, pk=None):
+        """List Schedules of a show"""
+        schedules = self.get_queryset()
+        serializer = ScheduleSerializer(schedules, many=True)
+        return Response(serializer.data)
+
+
+    def retrieve(self, request, pk=None, show_pk=None):
+
+        if show_pk != None:
+            schedule = get_object_or_404(Schedule, pk=pk, show=show_pk)
+        else:
+            schedule = get_object_or_404(Schedule, pk=pk)
+
+        serializer = ScheduleSerializer(schedule)
+        return Response(serializer.data)
+
+
+    def create(self, request, show_pk=None, pk=None):
+        """
+        TODO: Create a schedule, generate timeslots, test for collisions and resolve them including notes
+        Only superusers may add schedules
+        """
+
+        # Only allow creating when calling /shows/1/schedules/1
+        if show_pk == None or not request.user.is_superuser:
+            return Response(status=HTTP_401_UNAUTHORIZED)
+
+        return Response(status=HTTP_401_UNAUTHORIZED)
+
+
+    def update(self, request, pk=None, show_pk=None):
+        """
+        TODO: Update a schedule, generate timeslots, test for collisions and resolve them including notes
+        Only superusers may update schedules
+        """
+
+        # Only allow updating when calling /shows/1/schedules/1
+        if show_pk == None or not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        schedule = get_object_or_404(Schedule, pk=pk, show=show_pk)
+
+        serializer = ScheduleSerializer(schedule, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def destroy(self, request, pk=None):
+        """
+        Delete a schedule
+        Only superusers may delete schedules
+        """
+
+        if not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        schedule = get_object_or_404(Schedule, pk=pk)
+        Schedule.objects.delete(pk=pk)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+class APITimeSlotViewSet(viewsets.ModelViewSet):
+    """
+    /api/v1/timeslots                                                     Returns timeslots of the next 60 days (GET) - Timeslots may only be added by creating/updating a schedule
+    /api/v1/timeslots/1                                                   Returns the given timeslot (GET) - PUT/DELETE not allowed at this level
+    /api/v1/timeslots/?start=2017-01-01&end=2017-02-01                    Returns timeslots within the given timerange (GET)
+    /api/v1/shows/1/timeslots                                             Returns timeslots of the show (GET, POST)
+    /api/v1/shows/1/timeslots/1                                           Returns a timeslots by its ID (GET, PUT, DELETE)
+    /api/v1/shows/1/timeslots?start=2017-01-01&end=2017-02-01             Returns timeslots of the show within the given timerange
+    /api/v1/shows/1/schedules/1/timeslots                                 Returns all timeslots of the schedule (GET, POST)
+    /api/v1/shows/1/schedules/1/timeslots/1                               Returns a timeslot by its ID (GET, PUT, DELETE)
+    /api/v1/shows/1/schedules/1/timeslots?start=2017-01-01&end=2017-02-01 Returns all timeslots of the schedule within the given timerange
+    """
+
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = TimeSlotSerializer
     queryset = TimeSlot.objects.none()
     required_scopes = ['timeslots']
 
 
     def get_queryset(self):
+        show_pk = self.kwargs['show_pk'] if 'show_pk' in self.kwargs else None
+        schedule_pk = self.kwargs['schedule_pk'] if 'schedule_pk' in self.kwargs else None
+
         # Return next 60 days by default
         start = datetime.combine(date.today(), time(0, 0))
         end = start + timedelta(days=60)
@@ -506,22 +625,32 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
             end = datetime.combine( datetime.strptime(self.request.GET.get('end'), '%Y-%m-%d').date(), time(23, 59))
 
         # If show is given: Return corresponding timeslots
-        if self.request.GET.get('show_id') != None:
-            show_id = int(self.request.GET.get('show_id'))
+        if show_pk != None and schedule_pk != None:
+            # /shows/1/schedules/1/timeslots/ returns timeslots of the given schedule and show
+            return TimeSlot.objects.filter(show=show_pk, schedule=schedule_pk, start__gte=start, end__lte=end).order_by('start')
+        elif show_pk != None and schedule_pk == None:
+            # /shows/1/timeslots returns timeslots of the show
+            return TimeSlot.objects.filter(show=show_pk, start__gte=start, end__lte=end).order_by('start')
+        else:
+            # Otherwise return all timeslots
+            return TimeSlot.objects.filter(start__gte=start, end__lte=end).order_by('start')
 
-            if not Show.is_editable(self, show_id):
-                return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-            return TimeSlot.objects.filter(show=show_id, start__gte=start, end__lte=end).order_by('start')
-
-        # Otherwise return all show timeslots
-        return TimeSlot.objects.filter(start__gte=start, end__lte=end).order_by('start')
-
-
-    def list(self, request):
+    def list(self, request, show_pk=None, schedule_pk=None):
         """Lists timeslots of a show"""
         timeslots = self.get_queryset()
         serializer = TimeSlotSerializer(timeslots, many=True)
+        return Response(serializer.data)
+
+
+    def retrieve(self, request, pk=None, schedule_pk=None, show_pk=None):
+
+        if show_pk != None:
+            timeslot = get_object_or_404(TimeSlot, pk=pk, show=show_pk)
+        else:
+            timeslot = get_object_or_404(TimeSlot, pk=pk)
+
+        serializer = TimeSlotSerializer(timeslot)
         return Response(serializer.data)
 
 
@@ -530,10 +659,16 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
         return Response(status=HTTP_401_UNAUTHORIZED)
 
 
-    def partial_update(self, request, pk=None):
+    def update(self, request, pk=None, schedule_pk=None, show_pk=None):
         """Link a playlist_id to a timeslot"""
 
-        serializer = TimeSlotSerializer(data=request.data)
+        timeslot = get_object_or_404(TimeSlot, pk=pk, schedule=schedule_pk, show=show_pk)
+
+        # Update is only allowed when calling /shows/1/schedules/1/timeslots/1 and if user owns the show
+        if schedule_pk == None or show_pk==None or not Show.is_editable(self, timeslot.show_id):
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = TimeSlotSerializer(timeslot, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -541,23 +676,48 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+    def destroy(self, request, pk=None):
+        """
+        Delete a timeslot
+        Only superusers may delete timeslots
+        """
+
+        if not request.user.is_superuser:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        timeslot = get_object_or_404(TimeSlot, pk=pk)
+        TimeSlot.objects.delete(pk=pk)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 
 class APINoteViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/notes/                Returns all notes the user owns
-    /ap1/v1/notes/1               Returns a single note (if owned)
-    /api/v1/notes/?ids=1,2,3,4,5  Returns given notes (if owned)
+    /api/v1/notes/                                  Returns all notes (GET) - POST not allowed at this level
+    /ap1/v1/notes/1                                 Returns a single note (if owned) (GET) - PUT/DELETE not allowed at this level
+    /api/v1/notes/?ids=1,2,3,4,5                    Returns given notes (if owned) (GET)
+    /api/v1/shows/1/notes                           Returns all notes of a show (GET) - POST not allowed at this level
+    /api/v1/shows/1/notes/1                         Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
+    /api/v1/shows/1/timeslots/1/notes/              Returns a note of the timeslot (GET) - POST not allowed at this level
+    /api/v1/shows/1/timeslots/1/notes/1             Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
+    /api/v1/shows/1/schedules/1/timeslots/1/notes   Returns a note to the timeslot (GET, POST) - Only one note allowed per timeslot
+    /api/v1/shows/1/schedules/1/timeslots/1/notes/1 Returns a note by its ID (GET, PUT, DELETE)
 
     Superusers may access and update all notes
     """
 
     queryset = Note.objects.none()
     serializer_class = NoteSerializer
-    permission_classes = [permissions.IsAuthenticated, permissions.DjangoModelPermissions]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['notes']
 
 
     def get_queryset(self):
+
+        pk = self.kwargs['pk'] if 'pk' in self.kwargs else None
+        timeslot_pk = self.kwargs['timeslot_pk'] if 'timeslot_pk' in self.kwargs else None
+        show_pk = self.kwargs['show_pk'] if 'show_pk' in self.kwargs else None
 
         # TODO: Should users be able to edit other's notes if they're part of a show they own?
         if self.request.GET.get('ids') != None:
@@ -568,31 +728,42 @@ class APINoteViewSet(viewsets.ModelViewSet):
                 # Common users only retrieve notes they own
                 notes = Note.objects.filter(id__in=note_ids,user=self.request.user.id)
         else:
-           notes = Note.objects.filter(user=self.request.user.id)
+
+            if show_pk != None and timeslot_pk != None:
+                # /shows/1/schedules/1/timeslots/1/notes
+                # /shows/1/timeslots/1/notes/
+                # ...return notes to the timeslot
+                notes = Note.objects.filter(show=show_pk, timeslot=timeslot_pk)
+            elif show_pk != None and timeslot_pk == None:
+                # /shows/1/notes returns notes to the show
+                notes = Note.objects.filter(show=show_pk)
+            else:
+                # /notes returns all notes
+                notes = Note.objects.all()
+                #notes = Note.objects.filter(user=self.request.user.id)
 
         return notes
 
 
-    def list(self, request):
+    def list(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
         """Lists notes"""
         notes = self.get_queryset()
         serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data)
 
 
-    def create(self, request):
-        """
-        Creates a note
-        """
+    def create(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
+        """Create a note"""
 
-        # Only create a note if show_id and timeslot_id is given
-        if request.POST.get('show') == None or request.POST.get('timeslot') == None:
+        # Only create a note if show_id, timeslot_id and schedule_id is given
+        if show_pk == None or schedule_pk == None or timeslot_pk == None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        if not Show.is_editable(self, request.POST.get('show')):
+        if not Show.is_editable(self, show_pk):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        serializer = NoteSerializer(data=request.data)
+        serializer = NoteSerializer(data=request.data, context={ 'user_id': request.user.id })
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -600,25 +771,45 @@ class APINoteViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-    def retrieve(self, request, pk=None):
-        """Returns a single note"""
+    def retrieve(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
+        """
+        Returns a single note
 
-        note = get_object_or_404(Note, pk=pk)
+        Called by:
+        /notes/1
+        /shows/1/notes/1
+        /shows/1/timeslots/1/notes/1
+        /shows/1/schedules/1/timeslots/1/notes/1
+        """
 
-        if not request.user.is_superuser and int(pk) not in self.get_queryset().values_list('id', flat=True):
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        if show_pk != None and timeslot_pk == None and schedule_pk == None:
+            # /shows/1/notes/1
+            note = get_object_or_404(Note, pk=pk, show=show_pk)
+        elif show_pk != None and timeslot_pk != None:
+            # /shows/1/timeslots/1/notes/1
+            # /shows/1/schedules/1/timeslots/1/notes/1
+            note = get_object_or_404(Note, pk=pk, show=show_pk, timeslot=timeslot_pk)
+        else:
+            # /notes/1
+            note = get_object_or_404(Note, pk=pk)
 
         serializer = NoteSerializer(note)
         return Response(serializer.data)
 
 
-    def partial_update(self, request, pk=None):
-        note = get_object_or_404(Note, pk=pk)
+    def update(self, request, pk=None, show_pk=None, schedule_pk=None, timeslot_pk=None):
 
+        # Allow PUT only when calling /shows/1/schedules/1/timeslots/1/notes/1
+        if show_pk == None or schedule_pk == None or timeslot_pk == None:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        note = get_object_or_404(Note, pk=pk, timeslot=timeslot_pk, show=show_pk)
+
+        # Commons users may only edit their own notes
         if not request.user.is_superuser and note.user_id != request.user.id:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        serializer = NoteSerializer(data=request.data)
+        serializer = NoteSerializer(note, data=request.data)
 
         if serializer.is_valid():
             serializer.save();
@@ -630,6 +821,7 @@ class APINoteViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk=None):
         note = get_object_or_404(Note, pk=pk)
 
+        # Commons users may only delete their own notes
         if not request.user.is_superuser and note.user_id != request.user.id:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
@@ -637,77 +829,92 @@ class APINoteViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+
 class APICategoryViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/categories/  Returns all categories (GET, POST)
+    /api/v1/categories/1 Returns a category by its ID (GET, PUT, DELETE)
     """
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['categories']
 
 
 
 class APITypeViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/types/  Returns all types (GET, POST)
+    /api/v1/types/1 Returns a type by its ID (GET, PUT, DELETE)
     """
 
     queryset = Type.objects.all()
     serializer_class = TypeSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['types']
 
 
 
 class APITopicViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/topics/  Returns all topics (GET, POST)
+    /api/v1/topics/1 Returns a topic by its ID (GET, PUT, DELETE)
     """
 
     queryset = Topic.objects.all()
     serializer_class = TopicSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['topics']
 
 
 
 class APIMusicFocusViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/musicfocus/  Returns all musicfocuses (GET, POST)
+    /api/v1/musicfocus/1 Returns a musicfocus by its ID (GET, PUT, DELETE)
     """
 
     queryset = MusicFocus.objects.all()
     serializer_class = MusicFocusSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['musicfocus']
 
 
 
 class APIRTRCategoryViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/rtrcategories/  Returns all rtrcategories (GET, POST)
+    /api/v1/rtrcategories/1 Returns a rtrcategory by its ID (GET, PUT, DELETE)
     """
 
     queryset = RTRCategory.objects.all()
     serializer_class = RTRCategorySerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['rtrcategories']
 
 
 class APILanguageViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/languages/  Returns all languages (GET, POST)
+    /api/v1/languages/1 Returns a language by its ID (GET, PUT, DELETE)
     """
 
     queryset = Language.objects.all()
     serializer_class = LanguageSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['languages']
 
 
 class APIHostViewSet(viewsets.ModelViewSet):
     """
+    /api/v1/hosts/  Returns all hosts (GET, POST)
+    /api/v1/hosts/1 Returns a host by its ID (GET, PUT, DELETE)
     """
 
     queryset = Host.objects.all()
     serializer_class = HostSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['hosts']
 
 
@@ -718,6 +925,6 @@ class APIOwnersViewSet(viewsets.ModelViewSet):
 
     queryset = Owners.objects.all()
     serializer_class = OwnersSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['owners']
 '''

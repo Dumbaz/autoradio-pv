@@ -87,7 +87,7 @@ class HostAdmin(admin.ModelAdmin):
 
 class NoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'start'
-    list_display = ('title', 'show', 'start', 'status')
+    list_display = ('title', 'show', 'start', 'status', 'user')
     fields = (( 'show', 'timeslot'), 'title', 'slug', 'summary', 'content', 'image', 'status', 'cba_id')
     prepopulated_fields = {'slug': ('title',)}
     list_filter = ('status',)
@@ -146,28 +146,8 @@ class NoteAdmin(admin.ModelAdmin):
         if not change:
             obj.user = request.user
 
-        obj.audio_url = ''
-
-        # Retrieve the direct URL to the mp3 in CBA
-        # In order to retrieve the URL, stations need
-        #   - to be whitelisted by CBA
-        #   - an API Key
-        #
-        # Therefore contact cba@fro.at
-        from pv.settings import CBA_AJAX_URL, CBA_API_KEY
-
-        if obj.cba_id != '' and CBA_API_KEY != '':
-            from urllib.request import urlopen
-            import json
-
-            url = CBA_AJAX_URL + '?action=cba_ajax_get_filename&post_id=' + str(obj.cba_id) + '&api_key=' + CBA_API_KEY
-
-            # For momentary testing without being whitelisted - TODO: delete the line
-            url = 'https://cba.fro.at/wp-content/plugins/cba/ajax/cba-get-filename.php?post_id=' + str(obj.cba_id) + '&c=Ml3fASkfwR8'
-
-            with urlopen(url) as conn:
-                audio_url = conn.read().decode('utf-8-sig')
-                obj.audio_url = json.loads(audio_url)
+        # Try to get direct audio URL from CBA
+        obj.audio_url = Note.get_audio_url(obj.cba_id)
 
         obj.save()
 
@@ -283,7 +263,6 @@ class ShowAdmin(admin.ModelAdmin):
           * or redirect to the original show-form if the resolving process has been finished
             (= if either max_steps was surpassed or end_reached was True)
         """
-
         self.end_reached = False
 
         schedule_instances = formset.save(commit=False)

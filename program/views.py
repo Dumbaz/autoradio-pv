@@ -13,6 +13,7 @@ from django.views.generic.list import ListView
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
 
 from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule
 from program.serializers import TypeSerializer, LanguageSerializer, MusicFocusSerializer, NoteSerializer, ShowSerializer, ScheduleSerializer, CategorySerializer, RTRCategorySerializer, TopicSerializer, TimeSlotSerializer, HostSerializer, UserSerializer
@@ -426,6 +427,7 @@ class APIShowViewSet(viewsets.ModelViewSet):
     queryset = Show.objects.none()
     serializer_class = ShowSerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    pagination_class = LimitOffsetPagination
     required_scopes = ['shows']
 
 
@@ -446,13 +448,13 @@ class APIShowViewSet(viewsets.ModelViewSet):
 
         return Show.objects.all()
 
-
+    '''
     def list(self, request):
         """List shows"""
         shows = self.get_queryset()
         serializer = ShowSerializer(shows, many=True)
         return Response(serializer.data)
-
+    '''
 
     def create(self, request, pk=None):
         """
@@ -621,6 +623,7 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
 
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = TimeSlotSerializer
+    pagination_class = LimitOffsetPagination
     queryset = TimeSlot.objects.none()
     required_scopes = ['timeslots']
 
@@ -649,12 +652,13 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
             return TimeSlot.objects.filter(start__gte=start, end__lte=end).order_by('start')
 
 
+    '''
     def list(self, request, show_pk=None, schedule_pk=None):
         """Lists timeslots of a show"""
         timeslots = self.get_queryset()
         serializer = TimeSlotSerializer(timeslots, many=True)
         return Response(serializer.data)
-
+    '''
 
     def retrieve(self, request, pk=None, schedule_pk=None, show_pk=None):
 
@@ -726,6 +730,7 @@ class APINoteViewSet(viewsets.ModelViewSet):
     queryset = Note.objects.none()
     serializer_class = NoteSerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    pagination_class = LimitOffsetPagination
     required_scopes = ['notes']
 
 
@@ -761,12 +766,13 @@ class APINoteViewSet(viewsets.ModelViewSet):
         return notes
 
 
+    '''
     def list(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
         """Lists notes"""
         notes = self.get_queryset()
         serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data)
-
+    '''
 
     def create(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
         """Create a note"""

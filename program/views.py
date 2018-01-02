@@ -410,15 +410,15 @@ class APIShowViewSet(viewsets.ModelViewSet):
     /api/v1/shows/                                             Returns shows a user owns (GET, POST)
     /api/v1/shows/?active=true                                 Returns all active shows (no matter if owned by user) (GET)
     /api/v1/shows/1                                            Used for retrieving a single show or update (if owned) (GET, PUT, DELETE)
-    /api/v1/shows/1/notes                                      Returns all notes to the show (GET) - POST not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes instead
-    /api/v1/shows/1/notes/1                                    Returns the note of the show by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes/1/ instead
+    /api/v1/shows/1/notes                                      Returns all notes to the show (GET) - POST not allowed at this level, use /shows/1/schedules/1/timeslots/1/note instead
+    /api/v1/shows/1/notes/1                                    Returns the note of the show by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/note/1/ instead
     /api/v1/shows/1/schedules                                  Returns all schedules of the show (GET, POST)
     /api/v1/shows/1/schedules/1                                Returns the schedule of the show by its ID (GET) - POST not allowed at this level, use /shows/1/schedules/ instead
     /api/v1/shows/1/timeslots                                  Returns all timeslots of the show (GET) - Timeslots may only be added by creating/updating a schedule
     /api/v1/shows/1/timeslots/1                                Returns the timeslot of the show (GET) - Timeslots may only be added by creating/updating a schedule
     /api/v1/shows/1/timeslots?start=2017-01-01&end=2017-12-31  Returns all timeslots of the show within the given timerange (GET)
-    /api/v1/shows/1/timeslots/1/notes                          Returns all notes to the timeslot (one at max) (GET) - POST not allowed at this level, use /shows/1/schedules/1/timelots/1/notes/ instead
-    /api/v1/shows/1/timeslots/1/notes/1                        Returns the note of the show's timeslot by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes/1/ instead
+    /api/v1/shows/1/timeslots/1/note                           Returns a note to the timeslot (one at max) (GET) - POST not allowed at this level, use /shows/1/schedules/1/timelots/1/note/ instead
+    /api/v1/shows/1/timeslots/1/note/1                         Returns the note of the show's timeslot by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/note/1/ instead
 
     Only superusers may add and delete shows
     """
@@ -715,10 +715,10 @@ class APINoteViewSet(viewsets.ModelViewSet):
     /api/v1/notes/?ids=1,2,3,4,5                    Returns given notes (if owned) (GET)
     /api/v1/shows/1/notes                           Returns all notes of a show (GET) - POST not allowed at this level
     /api/v1/shows/1/notes/1                         Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
-    /api/v1/shows/1/timeslots/1/notes/              Returns a note of the timeslot (GET) - POST not allowed at this level
-    /api/v1/shows/1/timeslots/1/notes/1             Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
-    /api/v1/shows/1/schedules/1/timeslots/1/notes   Returns a note to the timeslot (GET, POST) - Only one note allowed per timeslot
-    /api/v1/shows/1/schedules/1/timeslots/1/notes/1 Returns a note by its ID (GET, PUT, DELETE)
+    /api/v1/shows/1/timeslots/1/note/               Returns a note of the timeslot (GET) - POST not allowed at this level
+    /api/v1/shows/1/timeslots/1/note/1              Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
+    /api/v1/shows/1/schedules/1/timeslots/1/note    Returns a note to the timeslot (GET, POST) - Only one note allowed per timeslot
+    /api/v1/shows/1/schedules/1/timeslots/1/note/1  Returns a note by its ID (GET, PUT, DELETE)
 
     Superusers may access and update all notes
     """
@@ -746,8 +746,8 @@ class APINoteViewSet(viewsets.ModelViewSet):
         else:
 
             if show_pk != None and timeslot_pk != None:
-                # /shows/1/schedules/1/timeslots/1/notes
-                # /shows/1/timeslots/1/notes/
+                # /shows/1/schedules/1/timeslots/1/note
+                # /shows/1/timeslots/1/note/
                 # ...return notes to the timeslot
                 notes = Note.objects.filter(show=show_pk, timeslot=timeslot_pk)
             elif show_pk != None and timeslot_pk == None:
@@ -794,16 +794,16 @@ class APINoteViewSet(viewsets.ModelViewSet):
         Called by:
         /notes/1
         /shows/1/notes/1
-        /shows/1/timeslots/1/notes/1
-        /shows/1/schedules/1/timeslots/1/notes/1
+        /shows/1/timeslots/1/note/1
+        /shows/1/schedules/1/timeslots/1/note/1
         """
 
         if show_pk != None and timeslot_pk == None and schedule_pk == None:
             # /shows/1/notes/1
             note = get_object_or_404(Note, pk=pk, show=show_pk)
         elif show_pk != None and timeslot_pk != None:
-            # /shows/1/timeslots/1/notes/1
-            # /shows/1/schedules/1/timeslots/1/notes/1
+            # /shows/1/timeslots/1/note/1
+            # /shows/1/schedules/1/timeslots/1/note/1
             note = get_object_or_404(Note, pk=pk, show=show_pk, timeslot=timeslot_pk)
         else:
             # /notes/1
@@ -815,7 +815,7 @@ class APINoteViewSet(viewsets.ModelViewSet):
 
     def update(self, request, pk=None, show_pk=None, schedule_pk=None, timeslot_pk=None):
 
-        # Allow PUT only when calling /shows/1/schedules/1/timeslots/1/notes/1
+        # Allow PUT only when calling /shows/1/schedules/1/timeslots/1/note/1
         if show_pk == None or schedule_pk == None or timeslot_pk == None:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 

@@ -39,8 +39,8 @@ show_router.register(r'notes', APINoteViewSet, base_name='show-notes')
 show_router.register(r'timeslots', APITimeSlotViewSet, base_name='show-timeslots')
 show_timeslot_router = routers.NestedSimpleRouter(show_router, r'timeslots', lookup='timeslot')
 
-# /shows/1/timeslots/1/notes/
-show_timeslot_router.register(r'notes', APINoteViewSet, base_name='show-timeslots-note')
+# /shows/1/timeslots/1/note/
+show_timeslot_router.register(r'note', APINoteViewSet, base_name='show-timeslots-note')
 
 # /shows/1/schedules
 schedule_router = routers.NestedSimpleRouter(show_router, r'schedules', lookup='schedule')
@@ -49,8 +49,8 @@ schedule_router = routers.NestedSimpleRouter(show_router, r'schedules', lookup='
 schedule_router.register(r'timeslots', APITimeSlotViewSet, base_name='schedule-timeslots')
 timeslot_router = routers.NestedSimpleRouter(schedule_router, r'timeslots', lookup='timeslot')
 
-# /shows/1/schedules/1/timeslots/1/notes
-timeslot_router.register(r'notes', APINoteViewSet, base_name='timeslots-notes')
+# /shows/1/schedules/1/timeslots/1/note
+timeslot_router.register(r'note', APINoteViewSet, base_name='timeslots-note')
 
 
 urlpatterns = [

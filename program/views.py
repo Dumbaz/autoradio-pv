@@ -327,8 +327,8 @@ def json_timeslots_specials(request):
 
 class APIUserViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/users   Returns oneself - Superusers see all users (GET, POST)
-    /api/v1/users/1 Used for retrieving or updating a single user (GET, PUT, DELETE)
+    /api/v1/users   Returns oneself - Superusers see all users. Only superusers may create a user (GET, POST)
+    /api/v1/users/1 Used for retrieving or updating a single user. Non-superusers may only update certain fields. (GET, PUT) - DELETE is prohibited for everyone
 
     Superusers may access and update all users
     """
@@ -356,7 +356,7 @@ class APIUserViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None):
         """Returns a single user"""
 
-        # Common users may only see themselves
+        # Common users only see themselves
         if not request.user.is_superuser and int(pk) != request.user.id:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
@@ -399,15 +399,26 @@ class APIUserViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+    def destroy(self, request, pk=None):
+        """Deleting users is prohibited: Set 'is_active' to False instead"""
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
 
 class APIShowViewSet(viewsets.ModelViewSet):
     """
     /api/v1/shows/                                             Returns shows a user owns (GET, POST)
     /api/v1/shows/?active=true                                 Returns all active shows (no matter if owned by user) (GET)
     /api/v1/shows/1                                            Used for retrieving a single show or update (if owned) (GET, PUT, DELETE)
+    /api/v1/shows/1/notes                                      Returns all notes to the show (GET) - POST not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes instead
+    /api/v1/shows/1/notes/1                                    Returns the note of the show by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes/1/ instead
     /api/v1/shows/1/schedules                                  Returns all schedules of the show (GET, POST)
+    /api/v1/shows/1/schedules/1                                Returns the schedule of the show by its ID (GET) - POST not allowed at this level, use /shows/1/schedules/ instead
     /api/v1/shows/1/timeslots                                  Returns all timeslots of the show (GET) - Timeslots may only be added by creating/updating a schedule
+    /api/v1/shows/1/timeslots/1                                Returns the timeslot of the show (GET) - Timeslots may only be added by creating/updating a schedule
     /api/v1/shows/1/timeslots?start=2017-01-01&end=2017-12-31  Returns all timeslots of the show within the given timerange (GET)
+    /api/v1/shows/1/timeslots/1/notes                          Returns all notes to the timeslot (one at max) (GET) - POST not allowed at this level, use /shows/1/schedules/1/timelots/1/notes/ instead
+    /api/v1/shows/1/timeslots/1/notes/1                        Returns the note of the show's timeslot by its ID (GET) - PUT/DELETE not allowed at this level, use /shows/1/schedules/1/timeslots/1/notes/1/ instead
 
     Only superusers may add and delete shows
     """
@@ -426,8 +437,10 @@ class APIShowViewSet(viewsets.ModelViewSet):
             # Get currently running schedules to filter by
             # For single dates we test if there'll be one in the future (and ignore the until date)
             # TODO: Really consider dstart? (=currently active, not just upcoming ones)
+            # Add limit for future?
             schedules = Schedule.objects.filter( Q(rrule_id__gt=1,dstart__lte=date.today(),until__gte=date.today()) |
-                                             Q(rrule_id=1,dstart__gte=date.today()) ).distinct().values_list('show_id', flat=True)
+                                                 Q(rrule_id=1,dstart__gte=date.today())
+                                               ).distinct().values_list('show_id', flat=True)
 
             return Show.objects.filter(id__in=schedules)
 
@@ -655,7 +668,10 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
 
 
     def create(self, request):
-        """Timeslots may only be created by adding/updating schedules"""
+        """
+        Timeslots may only be created by adding/updating schedules
+        TODO: Adding single timeslot which fits to schedule?
+        """
         return Response(status=HTTP_401_UNAUTHORIZED)
 
 

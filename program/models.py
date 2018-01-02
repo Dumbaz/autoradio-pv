@@ -241,7 +241,7 @@ class Language(models.Model):
 
 class Host(models.Model):
     name = models.CharField(_("Name"), max_length=128)
-    is_always_visible = models.BooleanField(_("Is always visible"), default=False)
+    is_always_visible = models.BooleanField(_("Is always visible"), default=False) # Deprecated?
     email = models.EmailField(_("E-Mail"), blank=True)
     website = models.URLField(_("Website"), blank=True, help_text=_("URL to your personal website."))
     biography = tinymce_models.HTMLField(_("Biography"), blank=True, null=True, help_text=_("Describe yourself and your fields of interest in a few sentences."))
@@ -281,6 +281,8 @@ class Host(models.Model):
 
 
 class Show(models.Model):
+    # TODO: add field 'is_always_visible'?
+    # -> categories
     predecessor = models.ForeignKey('self', blank=True, null=True, related_name='successors', verbose_name=_("Predecessor"))
     hosts = models.ManyToManyField(Host, blank=True, related_name='shows', verbose_name=_("Hosts"))
     owners = models.ManyToManyField(User, blank=True, related_name='shows', verbose_name=_("Owners"))
@@ -302,7 +304,7 @@ class Show(models.Model):
     email = models.EmailField(_("E-Mail"), blank=True, null=True, help_text=_("The main contact email address for your show."))
     website = models.URLField(_("Website"), blank=True, null=True, help_text=_("Is there a website to your show? Type in its URL."))
     cba_series_id = models.IntegerField(_("CBA Series ID"), blank=True, null=True, help_text=_("Link your show to a CBA series by giving its ID. This will enable CBA upload and will automatically link your show to your CBA archive. Find out your ID under https://cba.fro.at/series"))
-    fallback_pool = models.CharField(_("Fallback Pool"), max_length=255, blank=True)
+    fallback_id = models.CharField(_("Fallback ID"), max_length=255, blank=True)
     created = models.DateTimeField(auto_now_add=True, editable=False)
     last_updated = models.DateTimeField(auto_now=True, editable=False)
 
@@ -387,7 +389,7 @@ class Schedule(models.Model):
     tend = models.TimeField(_("End time"))
     until = models.DateField(_("Last date"))
     is_repetition = models.BooleanField(_("Is repetition"), default=False)
-    fallback_playlist_id = models.IntegerField(_("Fallback Playlist ID"), blank=True, null=True)
+    fallback_id = models.IntegerField(_("Fallback ID"), blank=True, null=True)
     automation_id = models.IntegerField(_("Automation ID"), blank=True, null=True, choices=get_automation_id_choices()) # Deprecated
     created = models.DateTimeField(auto_now_add=True, editable=False, null=True) #-> both see https://stackoverflow.com/questions/1737017/django-auto-now-and-auto-now-add
     last_updated = models.DateTimeField(auto_now=True, editable=False, null=True)

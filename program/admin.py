@@ -163,7 +163,7 @@ class TimeSlotAdmin(admin.ModelAdmin):
 class ScheduleAdmin(admin.ModelAdmin):
     actions = ('renew',)
     inlines = (TimeSlotInline,)
-    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id', 'fallback_playlist_id')
+    fields = (('rrule', 'byweekday'), ('dstart', 'tstart', 'tend'), 'until', 'is_repetition', 'automation_id', 'fallback_id')
     list_display = ('get_show_name', 'byweekday', 'rrule', 'tstart', 'tend', 'until')
     list_filter = (ActiveSchedulesFilter, 'byweekday', 'rrule', 'is_repetition')
     ordering = ('byweekday', 'dstart')
@@ -203,7 +203,7 @@ class ShowAdmin(admin.ModelAdmin):
     fields = (
         'predecessor', 'type', 'name', 'slug', 'image', 'logo', 'short_description', 'description',
         'email', 'website', 'hosts', 'owners', 'language', 'category', 'rtrcategory', 'topic',
-        'musicfocus', 'fallback_pool', 'cba_series_id',
+        'musicfocus', 'fallback_id', 'cba_series_id',
     )
 
 
@@ -346,7 +346,7 @@ class ShowAdmin(admin.ModelAdmin):
                 until = datetime.strptime(request.POST.get('ps_save_until'), '%Y-%m-%d').date()
                 is_repetition = request.POST.get('ps_save_is_repetition')
                 automation_id = int(request.POST.get('ps_save_automation_id')) if request.POST.get('ps_save_automation_id') != 'None' else 0
-                fallback_playlist_id = int(request.POST.get('fallback_playlist_id')) if request.POST.get('ps_save_fallback_playlist_id') != 'None' else 0
+                fallback_id = int(request.POST.get('fallback_id')) if request.POST.get('ps_save_fallback_id') != 'None' else 0
 
                 # Put timeslot POST vars into lists with same indices
                 for i in range(num_inputs):
@@ -391,7 +391,7 @@ class ShowAdmin(admin.ModelAdmin):
                                               until=until,
                                               is_repetition=is_repetition,
                                               automation_id=automation_id,
-                                              fallback_playlist_id=fallback_playlist_id)
+                                              fallback_id=fallback_id)
 
                 # Only save schedule if any timeslots changed
                 if len(resolved_timeslots) > 0:

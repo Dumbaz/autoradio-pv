@@ -229,7 +229,7 @@ class ShowSerializer(serializers.HyperlinkedModelSerializer):
         model = Show
         fields = ('id', 'name', 'slug', 'image', 'logo', 'short_description', 'description',
                   'email', 'website', 'created', 'last_updated', 'type', 'rtrcategory',
-                  'predecessor_id', 'cba_series_id', 'fallback_pool', 'category', 'hosts',
+                  'predecessor_id', 'cba_series_id', 'fallback_id', 'category', 'hosts',
                   'owners', 'language', 'topic', 'musicfocus')
 
 
@@ -275,7 +275,7 @@ class ShowSerializer(serializers.HyperlinkedModelSerializer):
         instance.website = validated_data.get('website', instance.website)
         instance.predecessor_id = validated_data.get('predecessor_id', instance.predecessor_id)
         instance.cba_series_id = validated_data.get('cba_series_id', instance.cba_series_id)
-        instance.fallback_pool = validated_data.get('fallback_pool', instance.fallback_pool)
+        instance.fallback_id = validated_data.get('fallback_id', instance.fallback_id)
 
         # Only superusers may update the following fields
         if user.is_superuser:
@@ -324,7 +324,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
         instance.tend = validated_data.get('tend', instance.tend)
         instance.until = validated_data.get('until', instance.until)
         instance.is_repetition = validated_data.get('is_repetition', instance.is_repetition)
-        instance.fallback_playlist_id = validated_data.get('fallback_playlist_id', instance.fallback_playlist_id)
+        instance.fallback_id = validated_data.get('fallback_id', instance.fallback_id)
         instance.automation_id = validated_data.get('automation_id', instance.automation_id)
         instance.rrule = validated_data.get('rrule', instance.rrule)
         instance.show = validated_data.get('show', instance.show)

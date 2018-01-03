@@ -7,4 +7,4 @@ python-dateutil==2.6.0
 django-versatileimagefield==1.8.1
 djangorestframework
 drf-nested-routers==0.90.0
-django-oauth-toolkit
+django-oidc-provider==0.5.2

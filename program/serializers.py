@@ -28,7 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
 
-        profile = Profile(user=user, cba_username=profile_data.get('cba_username'), cba_user_token=profile_data.get('cba_user_token'))
+        profile = Profile(user=user, cba_username=profile_data.get('cba_username').strip(), cba_user_token=profile_data.get('cba_user_token').strip())
         profile.save()
 
         return user
@@ -98,7 +98,6 @@ class HostSerializer(serializers.ModelSerializer):
         Update and return an existing Host instance, given the validated data.
         """
 
-        # TODO: Still put this into a sub app?
         instance.name = validated_data.get('name', instance.name)
         instance.is_always_visible = validated_data.get('is_always_visible', instance.is_always_visible)
         instance.email = validated_data.get('email', instance.email)
@@ -205,14 +204,6 @@ class RTRCategorySerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-
-
-'''
-class OwnersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Owners
-        fields = '__all__'
-'''
 
 
 class ShowSerializer(serializers.HyperlinkedModelSerializer):
@@ -360,10 +351,12 @@ class TimeSlotSerializer(serializers.ModelSerializer):
 class NoteSerializer(serializers.ModelSerializer):
     show = serializers.PrimaryKeyRelatedField(queryset=Show.objects.all())
     timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
+    host = serializers.PrimaryKeyRelatedField(queryset=Host.objects.all())
 
     class Meta:
         model = Note
         fields = '__all__'
+
 
     def create(self, validated_data):
         """Create and return a new Note instance, given the validated data."""
@@ -388,6 +381,7 @@ class NoteSerializer(serializers.ModelSerializer):
         instance.content = validated_data.get('content', instance.content)
         instance.image = validated_data.get('image', instance.image)
         instance.status = validated_data.get('status', instance.status)
+        instance.host = validated_data.get('host', instance.host)
         instance.cba_id = validated_data.get('cba_id', instance.cba_id)
         instance.audio_url = Note.get_audio_url(instance.cba_id)
 

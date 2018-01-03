@@ -34,3 +34,9 @@
     id: 6
     group_id: 1
     permission_id: 68
+- model: auth.group_permissions
+  pk: 7
+  fields:
+    id: 6
+    group_id: 1
+    permission_id: 23

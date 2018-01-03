@@ -8,6 +8,9 @@ PROJECT_DIR = os.path.dirname(__file__)
 
 DEBUG = True
 
+# Must be set if DEBUG is False
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
 ADMINS = ()
 
 MANAGERS = ADMINS
@@ -26,6 +29,9 @@ DATABASES = {
 DATABASE_ROUTERS = ['nop.dbrouter.NopRouter']
 
 TIME_ZONE = 'Europe/Vienna'
+
+# django-oidc-provider needs timezones in database
+USE_TZ = True
 
 LANGUAGE_CODE = 'de'
 
@@ -86,8 +92,6 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT AUTHENTICATION_CLASSES': [
     ],
-    #'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
-    #'PAGE_SIZE': 100
 }
 
 INSTALLED_APPS = (
@@ -106,6 +110,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework_nested',
     'frapp',
+    'oidc_provider',
 )
 
 THUMBNAIL_SIZES = ['640x480', '200x200', '150x150']

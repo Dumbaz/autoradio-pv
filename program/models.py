@@ -271,6 +271,17 @@ class Host(models.Model):
     def active_shows(self):
         return self.shows.filter(schedules__until__gt=datetime.today())
 
+    def is_editable(self, host_id):
+        """
+        Whether the given host is assigned to a show the current user owns
+        @return boolean
+        """
+        if self.request.user.is_superuser:
+            return True
+
+        host_ids = Host.objects.filter(shows__in=self.request.user.shows.all()).distinct().values_list('id', flat=True)
+        return int(host_id) in host_ids
+
     def save(self, *args, **kwargs):
         super(Host, self).save(*args, **kwargs)
 
@@ -304,7 +315,7 @@ class Show(models.Model):
     email = models.EmailField(_("E-Mail"), blank=True, null=True, help_text=_("The main contact email address for your show."))
     website = models.URLField(_("Website"), blank=True, null=True, help_text=_("Is there a website to your show? Type in its URL."))
     cba_series_id = models.IntegerField(_("CBA Series ID"), blank=True, null=True, help_text=_("Link your show to a CBA series by giving its ID. This will enable CBA upload and will automatically link your show to your CBA archive. Find out your ID under https://cba.fro.at/series"))
-    fallback_id = models.CharField(_("Fallback ID"), max_length=255, blank=True)
+    fallback_id = models.IntegerField(_("Fallback ID"), blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, editable=False)
     last_updated = models.DateTimeField(auto_now=True, editable=False)
 
@@ -328,14 +339,14 @@ class Show(models.Model):
 
     def is_editable(self, show_id):
         """
-        Whether the current user can edit the given show
+        Whether the current user is owner of the given show
         @return boolean
         """
         if self.request.user.is_superuser:
             return True
-        else:
-            show_ids = self.request.user.shows.all().values_list('id', flat=True)
-            return int(show_id) in show_ids
+
+        show_ids = self.request.user.shows.all().values_list('id', flat=True)
+        return int(show_id) in show_ids
 
 
 class RRule(models.Model):
@@ -596,6 +607,12 @@ class TimeSlotManager(models.Manager):
                                        Q(start__gt=start, start__lt=end)).exclude(end=start)
 
 
+    @staticmethod
+    def get_timerange_timeslots(start, end):
+        return TimeSlot.objects.filter(Q(start__lte=start, end__gte=start) |
+                                       Q(start__gt=start, start__lt=end)).exclude(end=start)
+
+
 class TimeSlot(models.Model):
     schedule = models.ForeignKey(Schedule, related_name='timeslots', verbose_name=_("Schedule"))
     start = models.DateTimeField(_("Start time")) # Removed 'unique=True' because new Timeslots need to be created before deleting the old ones (otherwise linked notes get deleted first)
@@ -656,6 +673,7 @@ class Note(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     last_updated = models.DateTimeField(auto_now=True, editable=False)
     user = models.ForeignKey(User, editable=False, related_name='users', default=1)
+    host = models.ForeignKey(Host, related_name='hosts', null=True)
 
     class Meta:
         ordering = ('timeslot',)
@@ -664,6 +682,16 @@ class Note(models.Model):
 
     def __str__(self):
         return '%s - %s' % (self.title, self.timeslot)
+
+    def is_editable(self, note_id):
+        """
+        Whether the given note is assigned to a show the current user owns
+        @return boolean
+        """
+        if self.request.user.is_superuser:
+            return True
+
+        return int(note_id) in self.request.user.shows.all().values_list('id', flat=True)
 
     def get_audio_url(cba_id):
         """
@@ -679,7 +707,7 @@ class Note(models.Model):
 
         audio_url = ''
 
-        if cba_id != '' and CBA_API_KEY != '':
+        if cba_id != None and cba_id != '' and CBA_API_KEY != '':
             from urllib.request import urlopen
             import json
 

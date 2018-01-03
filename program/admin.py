@@ -84,11 +84,18 @@ class HostAdmin(admin.ModelAdmin):
     list_display = ('name','email',)
     list_filter = (ActiveHostsFilter, 'is_always_visible',)
 
+    def get_queryset(self, request):
+        if request.user.is_superuser:
+            return Host.objects.all()
+
+        # Common users only see hosts of shows they own
+        return Host.objects.filter(shows__in=request.user.shows.all()).distinct()
+
 
 class NoteAdmin(admin.ModelAdmin):
     date_hierarchy = 'start'
     list_display = ('title', 'show', 'start', 'status', 'user')
-    fields = (( 'show', 'timeslot'), 'title', 'slug', 'summary', 'content', 'image', 'status', 'cba_id')
+    fields = (( 'show', 'timeslot'), 'title', 'slug', 'summary', 'content', 'image', 'host', 'status', 'cba_id')
     prepopulated_fields = {'slug': ('title',)}
     list_filter = ('status',)
     ordering = ('timeslot',)
@@ -98,15 +105,17 @@ class NoteAdmin(admin.ModelAdmin):
         js = [ settings.MEDIA_URL + 'js/calendar/lib/moment.min.js',
                settings.MEDIA_URL + 'js/note_change.js', ]
 
+
     def get_queryset(self, request):
         if request.user.is_superuser:
-            # Superusers see notes of all shows
             shows = Show.objects.all()
         else:
-            # Users only see notes of shows they own
+            # Commons users only see notes of shows they own
             shows = request.user.shows.all()
 
         return super(NoteAdmin, self).get_queryset(request).filter(show__in=shows)
+
+
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         four_weeks_ago = datetime.now() - timedelta(weeks=4)
@@ -134,11 +143,18 @@ class NoteAdmin(admin.ModelAdmin):
         if db_field.name == 'show':
             # Adding/Editing a note: load user's shows into the dropdown
 
-            # Superusers see all shows
+            # Common users only see shows they own
             if not request.user.is_superuser:
                 kwargs['queryset'] = Show.objects.filter(pk__in=request.user.shows.all())
 
+
+        if db_field.name == 'host':
+            # Common users only see hosts of shows they own
+            if not request.user.is_superuser:
+                kwargs['queryset'] = Host.objects.filter(shows__in=request.user.shows.all()).distinct()
+
         return super(NoteAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
 
     def save_model(self, request, obj, form, change):
 
@@ -227,8 +243,11 @@ class ShowAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         '''Limit field access for common users'''
+
         if not request.user.is_superuser:
+            # TODO: how to set field 'name' readonly although it's required?
             return ('predecessor', 'type', 'hosts', 'owners', 'language', 'category', 'topic', 'musicfocus', 'rtrcategory')
+
         return list()
 
 

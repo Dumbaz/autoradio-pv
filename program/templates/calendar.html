@@ -128,17 +128,40 @@
     	notify.fadeOut(2000);
     }
 
+    /**
+     * Makes sure the csrftoken get submitted properly
+     * See https://stackoverflow.com/questions/35112451/forbidden-csrf-token-missing-or-incorrect-django-error
+     */
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie != '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = jQuery.trim(cookies[i]);
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    var csrftoken = getCookie('csrftoken');
+    function csrfSafeMethod(method) {
+        // These HTTP methods do not require CSRF protection
+        return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+    }
 
     jQuery(document).ready( function() {
 
        jQuery("#calendar").fullCalendar({
-          // Enable theme
-          theme: true,
+          theme: true, // Enable theme
           timezone: 'Europe/Berlin',
           locale: 'de', // TODO: make an option for that
           defaultView: 'agendaWeek',
           // Event dragging & resizing
-          editable: true,
+          editable: false,
           // Header
           header: {
             left: 'prev,next today',
@@ -155,16 +178,26 @@
                 if( ! confirm( "Wollen Sie diese Episode wirklich löschen?" ) )
                    return false;
 
-                // Delete from database
-                jQuery.post( '/api/v1/timeslots/' + event._id + '/', { 'action': 'delete_timeslot', 'id': event._id } )
-                .done(function( data ) {
-                   // Remove element from DOM
-                   jQuery('#calendar').fullCalendar('removeEvents', event._id );
-                   notify( 'Time slot deleted.' );
-                   console.log(data.result);
-                })
-                .fail(function( data ) {
-                   notify( data.result );
+                jQuery.ajaxSetup({
+                  beforeSend: function(xhr, settings) {
+                    if( ! csrfSafeMethod(settings.type) && ! this.crossDomain) {
+                      xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken') );
+                    }
+                  }
+                });
+
+                jQuery.ajax({
+                  url: '/api/v1/shows/' + event.show_id + '/timeslots/' + event._id + '/',
+                  type: 'DELETE',
+                  success: function(result) {
+                    jQuery('#calendar').fullCalendar('removeEvents', event._id );
+                    notify( 'Timeslot deleted.' );
+                  },
+                  error: function(request, msg, error) {
+                    notify( 'Delete failed: ' + request.responseJSON.detail );
+                    console.log(error)
+                    console.log(request)
+                  }
                 });
 
              });

@@ -13,9 +13,11 @@ from django.views.generic.list import ListView
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.decorators import api_view
 
-from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule
+from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule, RRule
 from program.serializers import TypeSerializer, LanguageSerializer, MusicFocusSerializer, NoteSerializer, ShowSerializer, ScheduleSerializer, CategorySerializer, RTRCategorySerializer, TopicSerializer, TimeSlotSerializer, HostSerializer, UserSerializer
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
@@ -530,7 +532,7 @@ class APIShowViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         show = get_object_or_404(Show, pk=pk)
-        Show.objects.delete(pk=pk)
+        Show.objects.get(pk=pk).delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -622,7 +624,7 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         schedule = get_object_or_404(Schedule, pk=pk)
-        Schedule.objects.delete(pk=pk)
+        Schedule.objects.get(pk=pk).delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -722,17 +724,21 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-    def destroy(self, request, pk=None):
+    def destroy(self, request, pk=None, schedule_pk=None, show_pk=None):
         """
         Delete a timeslot
         Only superusers may delete timeslots
         """
 
+        # Only allow when calling endpoint starting with /shows/1/...
+        if show_pk == None:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
         if not request.user.is_superuser:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         timeslot = get_object_or_404(TimeSlot, pk=pk)
-        TimeSlot.objects.delete(pk=pk)
+        TimeSlot.objects.get(pk=pk).delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -803,8 +809,13 @@ class APINoteViewSet(viewsets.ModelViewSet):
             notes = notes.filter(host=int(self.request.GET.get('host')))
 
         if self.request.GET.get('owner') != None:
+            '''Filter notes by show owner: all notes the user may edit'''
+            shows = Show.objects.filter(owners=int(self.request.GET.get('owner')))
+            notes = notes.filter(show__in=shows)
+
+        if self.request.GET.get('user') != None:
             '''Filter notes by their creator'''
-            notes = notes.filter(user=int(self.request.GET.get('owner')))
+            notes = notes.filter(user=int(self.request.GET.get('user')))
 
         return notes
 
@@ -911,7 +922,7 @@ class APINoteViewSet(viewsets.ModelViewSet):
         note = get_object_or_404(Note, pk=pk)
 
         if Note.is_editable(self, note.id):
-            Note.objects.delete(pk=pk)
+            Note.objects.get(pk=pk).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_401_UNAUTHORIZED)

@@ -12,7 +12,6 @@ admin.autodiscover()
 
 router = routers.DefaultRouter()
 router.register(r'users', APIUserViewSet)
-#router.register(r'owners', APIOwnerViewSet)
 router.register(r'hosts', APIHostViewSet)
 router.register(r'shows', APIShowViewSet)
 router.register(r'schedules', APIScheduleViewSet)

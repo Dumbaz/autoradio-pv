@@ -131,6 +131,14 @@ TINYMCE_DEFAULT_CONFIG = {
 
 CACHE_BACKEND = 'locmem://'
 
+# When generating schedules/timeslots:
+# If until date wasn't set, add x days to start time
+AUTO_SET_UNTIL_DATE_TO_DAYS_IN_FUTURE = 365
+
+# If until date wasn't set, auto-set it to the end of the year
+# Overrides the above setting if True
+AUTO_SET_UNTIL_DATE_TO_END_OF_YEAR = True
+
 MUSIKPROG_IDS = (
     1,    # unmodieriertes musikprogramm
 )

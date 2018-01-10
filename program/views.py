@@ -10,34 +10,37 @@ from django.shortcuts import get_object_or_404
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from django.forms.models import model_to_dict
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.renderers import JSONRenderer
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.decorators import api_view
 
 from program.models import Type, MusicFocus, Language, Note, Show, Category, RTRCategory, Topic, TimeSlot, Host, Schedule, RRule
 from program.serializers import TypeSerializer, LanguageSerializer, MusicFocusSerializer, NoteSerializer, ShowSerializer, ScheduleSerializer, CategorySerializer, RTRCategorySerializer, TopicSerializer, TimeSlotSerializer, HostSerializer, UserSerializer
 from program.utils import tofirstdayinisoweek, get_cached_shows
 
 
+# Deprecated
 class CalendarView(TemplateView):
     template_name = 'calendar.html'
 
 
+# Deprecated
 class HostListView(ListView):
     context_object_name = 'host_list'
     queryset = Host.objects.filter(Q(is_always_visible=True) | Q(shows__schedules__until__gt=datetime.now())).distinct()
     template_name = 'host_list.html'
 
 
+# Deprecated
 class HostDetailView(DetailView):
     context_object_name = 'host'
     queryset = Host.objects.all()
     template_name = 'host_detail.html'
 
 
+# Deprecated
 class ShowListView(ListView):
     context_object_name = 'show_list'
     template_name = 'show_list.html'
@@ -64,16 +67,19 @@ class ShowListView(ListView):
         return queryset
 
 
+# Deprecated
 class ShowDetailView(DetailView):
     queryset = Show.objects.all().exclude(id=1)
     template_name = 'show_detail.html'
 
 
+# Deprecated
 class TimeSlotDetailView(DetailView):
     queryset = TimeSlot.objects.all()
     template_name = 'timeslot_detail.html'
 
 
+# Deprecated
 class RecommendationsListView(ListView):
     context_object_name = 'recommendation_list'
     template_name = 'recommendation_list.html'
@@ -87,10 +93,12 @@ class RecommendationsListView(ListView):
                                          start__range=(now, end))).order_by('start')[:20]
 
 
+# Deprecated
 class RecommendationsBoxView(RecommendationsListView):
     template_name = 'boxes/recommendation.html'
 
 
+# Deprecated
 class DayScheduleView(TemplateView):
     template_name = 'day_schedule.html'
 
@@ -130,6 +138,7 @@ class DayScheduleView(TemplateView):
         return context
 
 
+# Deprecated
 class CurrentShowBoxView(TemplateView):
     context_object_name = 'recommendation_list'
     template_name = 'boxes/current.html'
@@ -148,6 +157,7 @@ class CurrentShowBoxView(TemplateView):
         return context
 
 
+# Deprecated
 class WeekScheduleView(TemplateView):
     template_name = 'week_schedule.html'
 
@@ -204,6 +214,7 @@ class StylesView(TemplateView):
         return context
 
 
+# Deprecated
 def json_day_schedule(request, year=None, month=None, day=None):
     if year is None and month is None and day is None:
         today = datetime.combine(date.today(), time(0, 0))
@@ -451,6 +462,8 @@ class APIShowViewSet(viewsets.ModelViewSet):
 
         shows = Show.objects.all()
 
+        '''Filters'''
+
         if self.request.GET.get('active') == 'true':
             '''Filter currently running shows'''
 
@@ -581,22 +594,32 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    def create(self, request, show_pk=None, pk=None):
+    def create(self, request, pk=None, show_pk=None):
         """
-        TODO: Create a schedule, generate timeslots, test for collisions and resolve them including notes
+        Create a schedule, generate timeslots, test for collisions and resolve them including notes
+
         Only superusers may add schedules
         """
 
-        # Only allow creating when calling /shows/1/schedules/1
+        # Only allow creating when calling /shows/1/schedules/
         if show_pk == None or not request.user.is_superuser:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response(status=HTTP_401_UNAUTHORIZED)
+        # First create submit
+        if isinstance(request.data, dict):
+            return Response(Schedule.make_conflicts(request.data, pk, show_pk))
+
+        # While resolving
+        if type(request.data) is list:
+            return Response(Schedule.resolve_conflicts(request.data, pk, show_pk))
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
     def update(self, request, pk=None, show_pk=None):
         """
-        TODO: Update a schedule, generate timeslots, test for collisions and resolve them including notes
+        Update a schedule, generate timeslots, test for collisions and resolve them including notes
+
         Only superusers may update schedules
         """
 
@@ -606,21 +629,25 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
 
         schedule = get_object_or_404(Schedule, pk=pk, show=show_pk)
 
-        serializer = ScheduleSerializer(schedule, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        # First update submit
+        if isinstance(request.data, dict):
+            return Response(Schedule.make_conflicts(model_to_dict(schedule), pk, show_pk))
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # While resolving
+        if type(request.data) is list:
+            return Response(Schedule.resolve_conflicts(request.data, pk, show_pk))
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
-    def destroy(self, request, pk=None):
+    def destroy(self, request, pk=None, show_pk=None):
         """
         Delete a schedule
         Only superusers may delete schedules
         """
 
-        if not request.user.is_superuser:
+        # Only allow deleting when calling /shows/1/schedules/1
+        if show_pk == None or not request.user.is_superuser:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         schedule = get_object_or_404(Schedule, pk=pk)
@@ -651,8 +678,11 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
 
 
     def get_queryset(self):
+
         show_pk = self.kwargs['show_pk'] if 'show_pk' in self.kwargs else None
         schedule_pk = self.kwargs['schedule_pk'] if 'schedule_pk' in self.kwargs else None
+
+        '''Filters'''
 
         # Return next 60 days by default
         start = datetime.combine(date.today(), time(0, 0))
@@ -662,29 +692,30 @@ class APITimeSlotViewSet(viewsets.ModelViewSet):
             start = datetime.combine( datetime.strptime(self.request.GET.get('start'), '%Y-%m-%d').date(), time(0, 0))
             end = datetime.combine( datetime.strptime(self.request.GET.get('end'), '%Y-%m-%d').date(), time(23, 59))
 
-        # If show is given: Return corresponding timeslots
+        '''Endpoints'''
+
+        #
+        #     /shows/1/schedules/1/timeslots/
+        #
+        #     Returns timeslots of the given show and schedule
+        #
         if show_pk != None and schedule_pk != None:
-            #
-            #     /shows/1/schedules/1/timeslots/
-            #
-            #     Returns timeslots of the given show and schedule
-            #
             return TimeSlot.objects.filter(show=show_pk, schedule=schedule_pk, start__gte=start, end__lte=end).order_by('start')
 
+        #
+        #     /shows/1/timeslots/
+        #
+        #     Returns timeslots of the show
+        #
         elif show_pk != None and schedule_pk == None:
-            #
-            #     /shows/1/timeslots/
-            #
-            #     Returns timeslots of the show
-            #
             return TimeSlot.objects.filter(show=show_pk, start__gte=start, end__lte=end).order_by('start')
 
+        #
+        #     /timeslots/
+        #
+        #     Returns all timeslots
+        #
         else:
-            #
-            #     /timeslots/
-            #
-            #     Returns all timeslots
-            #
             return TimeSlot.objects.filter(start__gte=start, end__lte=end).order_by('start')
 
 
@@ -750,7 +781,8 @@ class APINoteViewSet(viewsets.ModelViewSet):
     /ap1/v1/notes/1                                 Returns a single note (if owned) (GET) - PUT/DELETE not allowed at this level
     /api/v1/notes/?ids=1,2,3,4,5                    Returns given notes (if owned) (GET)
     /api/v1/notes/?host=1                           Returns notes assigned to a given host (GET)
-    /api/v1/notes/?owner=1                          Returns notes created by a given user (GET)
+    /api/v1/notes/?owner=1                          Returns notes editable by a given user (GET)
+    /api/v1/notes/?user=1                           Returns notes created by a given user (GET)
     /api/v1/shows/1/notes                           Returns all notes of a show (GET) - POST not allowed at this level
     /api/v1/shows/1/notes/1                         Returns a note by its ID (GET) - PUT/DELETE not allowed at this level
     /api/v1/shows/1/timeslots/1/note/               Returns a note of the timeslot (GET) - POST not allowed at this level
@@ -774,30 +806,34 @@ class APINoteViewSet(viewsets.ModelViewSet):
         timeslot_pk = self.kwargs['timeslot_pk'] if 'timeslot_pk' in self.kwargs else None
         show_pk = self.kwargs['show_pk'] if 'show_pk' in self.kwargs else None
 
+        '''Endpoints'''
+
+        #
+        #     /shows/1/schedules/1/timeslots/1/note
+        #     /shows/1/timeslots/1/note
+        #
+        #     Return a note to the timeslot
+        #
         if show_pk != None and timeslot_pk != None:
-            #
-            #     /shows/1/schedules/1/timeslots/1/note
-            #     /shows/1/timeslots/1/note
-            #
-            #     Return a note to the timeslot
-            #
             notes = Note.objects.filter(show=show_pk, timeslot=timeslot_pk)
 
+        #
+        #     /shows/1/notes
+        #
+        #     Returns notes to the show
+        #
         elif show_pk != None and timeslot_pk == None:
-            #
-            #     /shows/1/notes
-            #
-            #     Returns notes to the show
-            #
             notes = Note.objects.filter(show=show_pk)
 
+        #
+        #     /notes
+        #
+        #     Returns all notes
+        #
         else:
-            #
-            #     /notes
-            #
-            #     Returns all notes
-            #
             notes = Note.objects.all()
+
+        '''Filters'''
 
         if self.request.GET.get('ids') != None:
             '''Filter notes by their IDs'''
@@ -819,14 +855,6 @@ class APINoteViewSet(viewsets.ModelViewSet):
 
         return notes
 
-
-    '''
-    def list(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
-        """Lists notes"""
-        notes = self.get_queryset()
-        serializer = NoteSerializer(notes, many=True)
-        return Response(serializer.data)
-    '''
 
     def create(self, request, pk=None, timeslot_pk=None, schedule_pk=None, show_pk=None):
         """Create a note"""
@@ -863,29 +891,29 @@ class APINoteViewSet(viewsets.ModelViewSet):
         /shows/1/schedules/1/timeslots/1/note/1
         """
 
+        #
+        #      /shows/1/notes/1
+        #
+        #      Returns a note to a show
+        #
         if show_pk != None and timeslot_pk == None and schedule_pk == None:
-            #
-            #      /shows/1/notes/1
-            #
-            #      Returns a note to a show
-            #
             note = get_object_or_404(Note, pk=pk, show=show_pk)
 
+        #
+        #     /shows/1/timeslots/1/note/1
+        #     /shows/1/schedules/1/timeslots/1/note/1
+        #
+        #     Return a note to a timeslot
+        #
         elif show_pk != None and timeslot_pk != None:
-            #
-            #     /shows/1/timeslots/1/note/1
-            #     /shows/1/schedules/1/timeslots/1/note/1
-            #
-            #     Return a note to a timeslot
-            #
             note = get_object_or_404(Note, pk=pk, show=show_pk, timeslot=timeslot_pk)
 
+        #
+        #     /notes/1
+        #
+        #     Returns the given note
+        #
         else:
-            #
-            #     /notes/1
-            #
-            #     Returns the given note
-            #
             note = get_object_or_404(Note, pk=pk)
 
         serializer = NoteSerializer(note)

@@ -418,7 +418,6 @@ class Schedule(models.Model):
         tend = self.tend.strftime('%H:%M')
         dstart = self.dstart.strftime('%d. %b %Y')
         tstart = self.tstart.strftime('%H:%M')
-        #is_repetition = self.is_repetition
 
         if self.rrule.freq == 0:
             return '%s %s, %s - %s' % (self.rrule, dstart, tstart, tend)
@@ -428,7 +427,7 @@ class Schedule(models.Model):
             return '%s, %s, %s - %s' % (weekday, self.rrule, tstart, tend)
 
     def instantiate_upcoming(sdl, show_pk, pk=None):
-        """Returns a schedule instance for conflict resolution"""
+        """Returns an upcoming schedule instance for conflict resolution"""
 
         pk = int(show_pk) if pk != None else None
         rrule = RRule.objects.get(pk=int(sdl['rrule']))
@@ -460,11 +459,8 @@ class Schedule(models.Model):
             else:
                 until = dstart + timedelta(days=+AUTO_SET_UNTIL_DATE_TO_DAYS_IN_FUTURE)
 
-
         schedule = Schedule(pk=pk, byweekday=sdl['byweekday'], rrule=rrule,
-                            dstart=dstart,
-                            tstart=tstart,
-                            tend=tend,
+                            dstart=dstart, tstart=tstart, tend=tend,
                             until=until, is_repetition=is_repetition,
                             fallback_id=fallback_id, show=show)
 
@@ -588,7 +584,9 @@ class Schedule(models.Model):
         Returns a list of conflicts containing dicts of projected timeslots, collisions and solutions
         """
 
-        conflicts = []
+        conflicts = {}
+        projected = []
+        solutions = {}
 
         # Cycle each timeslot
         for ts in timeslots:
@@ -596,14 +594,11 @@ class Schedule(models.Model):
             # Contains one conflict: a projected timeslot, collisions and solutions
             conflict = {}
 
-            # The projected timeslot
-            projected = {}
-
             # Contains collisions
             collisions = []
 
-            # Contains solutions
-            solutions = set()
+            # Contains possible solutions
+            solution_choices = set()
 
             # Get collisions for each timeslot
             collision_list = list(TimeSlot.objects.filter(
@@ -613,7 +608,11 @@ class Schedule(models.Model):
                            ( Q(start__lte=ts.start) & Q(end__gte=ts.end) )
                         ).order_by('start'))
 
-
+            # Add the projected timeslot
+            projected_entry = {}
+            projected_entry['hash'] = ts.hash
+            projected_entry['start'] = str(ts.start)
+            projected_entry['end'] = str(ts.end)
 
             for c in collision_list:
 
@@ -624,8 +623,10 @@ class Schedule(models.Model):
                 collision['end'] = str(c.end)
                 collision['playlist_id'] = c.playlist_id
                 collision['show'] = c.show.id
-                is_repetition = ' (' + str(_('REP')) + ')' if c.is_repetition else ''
-                collision['show_name'] = c.show.name + is_repetition
+                collision['show_name'] = c.show.name
+                collision['is_repetition'] = c.is_repetition
+                collision['schedule'] = c.schedule_id
+                collision['memo'] = c.memo
 
                 # Get note
                 try:
@@ -641,82 +642,80 @@ class Schedule(models.Model):
 
                 if len(collision_list) > 1:
                     # If there is more than one collision: Only these two are supported at the moment
-                    solutions.add('theirs')
-                    solutions.add('ours')
+                    solution_choices.add('theirs')
+                    solution_choices.add('ours')
                 else:
                     # These two are always possible: Either keep theirs and remove ours or vice versa
-                    solutions.add('theirs')
-                    solutions.add('ours')
+                    solution_choices.add('theirs')
+                    solution_choices.add('ours')
 
                     # Partly overlapping: projected starts earlier than existing and ends earlier
                     #
-                    #  ex.   pr.
-                    #       +--+
-                    #       |  |
-                    # +--+  |  |
-                    # |  |  +--+
-                    # |  |
-                    # +--+
-                    if ts.start < c.start and ts.end > c.start and ts.end <= c.end:
-                        solutions.add('theirs-end')
-                        solutions.add('ours-end')
-
-                    # Partly overlapping: projected start later than existing and ends later
+                    #    ex.  pr.
+                    #        +--+
+                    #        |  |
+                    #   +--+ |  |
+                    #   |  | +--+
+                    #   |  |
+                    #   +--+
                     #
-                    #  ex.   pr.
-                    # +--+
-                    # |  |
-                    # |  |  +--+
-                    # +--+  |  |
-                    #       |  |
-                    #       +--+
+                    if ts.start < c.start and ts.end > c.start and ts.end <= c.end:
+                        solution_choices.add('theirs-end')
+                        solution_choices.add('ours-end')
+
+                    # Partly overlapping: projected starts later than existing and ends later
+                    #
+                    #    ex.  pr.
+                    #   +--+
+                    #   |  |
+                    #   |  | +--+
+                    #   +--+ |  |
+                    #        |  |
+                    #        +--+
+                    #
                     if ts.start >= c.start and ts.start < c.end and ts.end > c.end:
-                        solutions.add('theirs-start')
-                        solutions.add('ours-start')
+                        solution_choices.add('theirs-start')
+                        solution_choices.add('ours-start')
 
                     # Fully overlapping: projected starts earlier and ends later than existing
                     #
-                    #  ex.   pr.
-                    #       +--+
-                    # +--+  |  |
-                    # |  |  |  |
-                    # +--+  |  |
-                    #       +--+
+                    #    ex.  pr.
+                    #        +--+
+                    #   +--+ |  |
+                    #   |  | |  |
+                    #   +--+ |  |
+                    #        +--+
+                    #
                     if ts.start < c.start and ts.end > c.end:
-                        solutions.add('theirs-end')
-                        solutions.add('theirs-start')
-                        solutions.add('theirs-both')
+                        solution_choices.add('theirs-end')
+                        solution_choices.add('theirs-start')
+                        solution_choices.add('theirs-both')
 
                     # Fully overlapping: projected starts later and ends earlier than existing
                     #
-                    #  ex.   pr.
-                    # +--+
-                    # |  |  +--+
-                    # |  |  |  |
-                    # |  |  +--+
-                    # +--+
+                    #    ex.  pr.
+                    #   +--+
+                    #   |  | +--+
+                    #   |  | |  |
+                    #   |  | +--+
+                    #   +--+
+                    #
                     if ts.start > c.start and ts.end < c.end:
-                        solutions.add('ours-end')
-                        solutions.add('ours-start')
-                        solutions.add('ours-both')
+                        solution_choices.add('ours-end')
+                        solution_choices.add('ours-start')
+                        solution_choices.add('ours-both')
 
+            if len(collisions) > 0:
+                solutions[ts.hash] = ''
 
-            # Add the projected timeslot
-            projected['hash'] = ts.hash
-            projected['start'] = str(ts.start)
-            projected['end'] = str(ts.end)
-            projected['playlist_id'] = ts.playlist_id
-            projected['show'] = ts.show.id
-            projected['show_name'] = ts.show.name
+            projected_entry['collisions'] = collisions
+            projected_entry['solution_choices'] = solution_choices
+            projected.append(projected_entry)
 
-            # Put the conflict together
-            conflict['projected'] = projected
-            conflict['collisions'] = collisions
-            if solutions:
-                conflict['solutions'] = solutions
-                conflict['resolution'] = 'theirs'
-
-            conflicts.append(conflict)
+        conflicts['projected'] = projected
+        conflicts['solutions'] = solutions
+        conflicts['notes'] = {}
+        conflicts['playlists'] = {}
 
         return conflicts
 
@@ -735,39 +734,40 @@ class Schedule(models.Model):
         # Generate timeslots
         timeslots = Schedule.generate_timeslots(schedule)
 
-        # Generate conflicts
+        # Generate conflicts and add schedule
         conflicts = Schedule.generate_conflicts(timeslots)
-
-        # Prepend schedule data
-        conflicts.insert(0, model_to_dict(schedule))
+        conflicts['schedule'] = model_to_dict(schedule)
 
         return conflicts
 
 
-    def resolve_conflicts(resolved, schedule_pk, show_pk):
+    def resolve_conflicts(data, schedule_pk, show_pk):
         """
         Resolves conflicts
-        Expects JSON POST data from /shows/1/schedules/
+        Expects JSON POST/PUT data from /shows/1/schedules/
 
-        Returns an array of objects if errors were found
-        Returns nothing if resolution was successful
+        Returns a list of dicts if errors were found
+        Returns an empty list if resolution was successful
         """
 
-        # Get schedule data
-        sdl = resolved.pop(0)
+        sdl = data['schedule']
+        solutions = data['solutions']
 
+        # Regenerate conflicts
         schedule = Schedule.instantiate_upcoming(sdl, show_pk, schedule_pk)
         show = schedule.show
         conflicts = Schedule.make_conflicts(sdl, schedule.pk, show.pk)
 
-        # Get rid of schedule data, we don't need it here
-        del(conflicts[0])
-
         if schedule.rrule.freq > 0 and schedule.dstart == schedule.until:
-            return {'detail': _("Start and until times mustn't be the same")}
+            return {'detail': _("Start and until dates mustn't be the same")}
 
-        if len(resolved) != len(conflicts):
-            return {'detail': _("Numbers of conflicts and resolutions don't match.")}
+        if schedule.until < schedule.dstart:
+            return {'detail': _("Until date mustn't before start")}
+
+        num_conflicts = len([pr for pr in conflicts['projected'] if len(x['collisions']) > 0])
+
+        if len(solutions) != num_conflicts:
+            return {'detail': _("Numbers of conflicts and solutions don't match.")}
 
         # Projected timeslots to create
         create = []
@@ -779,59 +779,56 @@ class Schedule(models.Model):
         delete = []
 
         # Error messages
-        errors = []
+        errors = {}
 
-        for index, ts in enumerate(conflicts):
-
-            # Check hash and skip in case it differs
-            if ts['projected']['hash'] != resolved[index]['projected']['hash']:
-                errors.append({ts['projected']['hash']: _("Hash corrupted.")})
-                continue
+        for ts in conflicts['projected']:
 
             # Ignore past dates
-            if datetime.strptime(ts['projected']['start'], "%Y-%m-%d %H:%M:%S") <= datetime.today():
+            if datetime.strptime(ts['start'], "%Y-%m-%d %H:%M:%S") <= datetime.today():
                 continue
 
             # If no solution necessary
             #
             #     - Create the projected timeslot and skip
             #
-            if not 'solutions' in ts or len(ts['collisions']) < 1:
-                projected = TimeSlot.objects.instantiate(ts['projected']['start'], ts['projected']['end'], schedule, show)
-                create.append(projected)
+            if not 'solution_choices' in ts or len(ts['collisions']) < 1:
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], ts['end'], schedule, show)
+                create.append(projected_ts)
+                continue
+
+            # Check hash (if start, end, rrule or byweekday changed)
+            if not ts['hash'] in solutions:
+                errors[ts['hash']] = _("This change on the timeslot is not allowed.")
                 continue
 
             # If no resolution given
             #
             #     - Skip
             #
-            if not 'resolution' in resolved[index] or resolved[index]['resolution'] == '':
-                errors.append({ts['projected']['hash']: _("No resolution given.")})
+            if solutions[ts['hash']] == '':
+                errors[ts['hash']] = _("No solution given.")
                 continue
 
             # If resolution is not accepted for this conflict
             #
             #     - Skip
             #
-            if not resolved[index]['resolution'] in ts['solutions']:
-                errors.append({ts['projected']['hash']: _("Given resolution is not accepted for this conflict.")})
+            if not solutions[ts['hash']] in ts['solution_choices']:
+                errors[ts['hash']] = _("Given solution is not accepted for this conflict.")
                 continue
 
 
             '''Conflict resolution'''
 
-            # TODO: Really retrieve by index?
-            projected = ts['projected']
-            existing = resolved[index]['collisions'][0]
-            solutions = ts['solutions']
-            resolution = resolved[index]['resolution']
+            existing = ts['collisions'][0]
+            solution = solutions[ts['hash']]
 
             # theirs
             #
             #     - Discard the projected timeslot
             #     - Keep the existing collision(s)
             #
-            if resolution == 'theirs':
+            if solution == 'theirs':
                 continue
 
 
@@ -840,12 +837,12 @@ class Schedule(models.Model):
             #     - Create the projected timeslot
             #     - Delete the existing collision(s)
             #
-            if resolution == 'ours':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], projected['end'], schedule, show)
+            if solution == 'ours':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
                 # Delete collision(s)
-                for ex in resolved[index]['collisions']:
+                for ex in ts['collisions']:
                     try:
                         existing_ts = TimeSlot.objects.get(pk=ex['id'])
                         delete.append(existing_ts)
@@ -858,22 +855,22 @@ class Schedule(models.Model):
             #     - Keep the existing timeslot
             #     - Create projected with end of existing start
             #
-            if resolution == 'theirs-end':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], existing['start'], schedule, show)
+            if solution == 'theirs-end':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], existing['start'], schedule, show)
                 create.append(projected_ts)
 
 
             # ours-end
             #
             #     - Create the projected timeslot
-            #     - Change the start of the existing collision to my end time
+            #     - Change the start of the existing collision to projected end
             #
-            if resolution == 'ours-end':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], projected['end'], schedule, show)
+            if solution == 'ours-end':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
                 existing_ts = TimeSlot.objects.get(pk=existing['id'])
-                existing_ts.start = datetime.strptime(projected['end'], '%Y-%m-%d %H:%M:%S')
+                existing_ts.start = datetime.strptime(ts['end'], '%Y-%m-%d %H:%M:%S')
                 update.append(existing_ts)
 
 
@@ -882,8 +879,8 @@ class Schedule(models.Model):
             #     - Keep existing
             #     - Create projected with start time of existing end
             #
-            if resolution == 'theirs-start':
-                projected_ts = TimeSlot.objects.instantiate(existing['end'], projected['end'], schedule, show)
+            if solution == 'theirs-start':
+                projected_ts = TimeSlot.objects.instantiate(existing['end'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
 
@@ -892,12 +889,12 @@ class Schedule(models.Model):
             #     - Create the projected timeslot
             #     - Change end of existing to projected start
             #
-            if resolution == 'ours-start':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], projected['end'], schedule, show)
+            if solution == 'ours-start':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
                 existing_ts = TimeSlot.objects.get(pk=existing['id'])
-                existing_ts.end = datetime.strptime(projected['start'], '%Y-%m-%d %H:%M:%S')
+                existing_ts.end = datetime.strptime(ts['start'], '%Y-%m-%d %H:%M:%S')
                 update.append(existing_ts)
 
 
@@ -906,11 +903,11 @@ class Schedule(models.Model):
             #     - Keep existing
             #     - Create two projected timeslots with end of existing start and start of existing end
             #
-            if resolution == 'theirs-both':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], existing['start'], schedule, show)
+            if solution == 'theirs-both':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], existing['start'], schedule, show)
                 create.append(projected_ts)
 
-                projected_ts = TimeSlot.objects.instantiate(existing['end'], projected['end'], schedule, show)
+                projected_ts = TimeSlot.objects.instantiate(existing['end'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
 
@@ -921,78 +918,95 @@ class Schedule(models.Model):
             #       - Set existing end time to projected start
             #       - Create another one with start = projected end and end = existing end
             #
-            if resolution == 'ours-both':
-                projected_ts = TimeSlot.objects.instantiate(projected['start'], projected['end'], schedule, show)
+            if solution == 'ours-both':
+                projected_ts = TimeSlot.objects.instantiate(ts['start'], ts['end'], schedule, show)
                 create.append(projected_ts)
 
                 existing_ts = TimeSlot.objects.get(pk=existing['id'])
-                existing_ts.end = datetime.strptime(projected['start'], '%Y-%m-%d %H:%M:%S')
+                existing_ts.end = datetime.strptime(ts['start'], '%Y-%m-%d %H:%M:%S')
                 update.append(existing_ts)
 
-                projected_ts = TimeSlot.objects.instantiate(projected['end'], existing['end'], schedule, show)
+                projected_ts = TimeSlot.objects.instantiate(ts['end'], existing['end'], schedule, show)
                 create.append(projected_ts)
 
 
         # If there were any errors, don't make any db changes yet
-        # but add error messages and already chosen resolutions to conflicts
-        if errors:
+        # but add error messages and return already chosen solutions
+        if len(errors) > 0:
             conflicts = Schedule.make_conflicts(model_to_dict(schedule), schedule.pk, show.pk)
 
-            sdl = conflicts.pop(0)
-            partly_resolved = conflicts
+            partly_resolved = conflicts['projected']
+            saved_solutions = {}
 
             # Add already chosen resolutions and error message to conflict
-            for index, c in enumerate(conflicts):
-                if 'resolution' in c:
-                    partly_resolved[index]['resolution'] = resolved[index]['resolution']
+            for index, c in enumerate(conflicts['projected']):
 
-                if c['projected']['hash'] in errors[0]:
-                    partly_resolved[index]['error'] = errors[0][c['projected']['hash']]
+                # The element should only exist if there was a collision
+                if len(c['collisions']) > 0:
+                    saved_solutions[c['hash']] = ''
 
-            # Re-insert schedule data
-            partly_resolved.insert(0, sdl)
+                if c['hash'] in solutions and solutions[c['hash']] in c['solution_choices']:
+                    saved_solutions[c['hash']] = solutions[c['hash']]
 
-            return partly_resolved
+                if c['hash'] in errors:
+                    partly_resolved[index]['error'] = errors[c['hash']]
+
+            # Re-insert post data
+            conflicts['projected'] = partly_resolved
+            conflicts['solutions'] = saved_solutions
+            conflicts['notes'] = data['notes']
+            conflicts['playlists'] = data['playlists']
+
+            return conflicts
 
 
-        # If there were no errors, execute all database changes
+        # If 'dryrun' is true, just return the projected changes instead of executing them
+        if 'dryrun' in sdl and sdl['dryrun']:
+            output = {}
+            output['create'] = [model_to_dict(ts) for ts in create]
+            output['update'] = [model_to_dict(ts) for ts in update]
+            output['delete'] = [model_to_dict(ts) for ts in delete]
+            return output
+
+
+        '''Database changes if no errors found'''
 
         # Only save schedule if timeslots were created
         if create:
             # Create or save schedule
-            print("saving schedule")
             schedule.save()
 
-            # Delete upcoming timeslots
-            # TODO: Which way to go?
-            # Two approaches (only valid for updating a schedule):
-            #     - Either we exclude matching a schedule to itself beforehand and then delete every upcoming before we create new ones
-            #     - Or we match a schedule against itself, let the user resolve everything and only delete those which still might exist after the new until date
-            # For now I decided for approach 2:
+            # Delete upcoming timeslots which still remain
             TimeSlot.objects.filter(schedule=schedule, start__gt=schedule.until).delete()
 
         # Update timeslots
         for ts in update:
-            print("updating " + str(ts))
             ts.save(update_fields=["start", "end"])
 
         # Create timeslots
         for ts in create:
-            print("creating " + str(ts))
             ts.schedule = schedule
+
+            # Reassign playlists
+            if 'playlists' in data and ts.hash in data['playlists']:
+                ts.playlist_id = int(data['playlists'][ts.hash])
+
             ts.save()
 
-        ######
-        # TODO: Relink notes while the original timeslots are not yet deleted
-        # TODO: Add the ability to relink playlist_ids as well!
-        ######
+            # Reassign notes
+            if 'notes' in data and ts.hash in data['notes']:
+                try:
+                    note = Note.objects.get(pk=int(data['notes'][ts.hash]))
+                    note.timeslot_id = ts.id
+                    note.save(update_fields=["timeslot_id"])
+                except ObjectDoesNotExist:
+                    pass
 
         # Delete manually resolved timeslots
         for dl in delete:
-            print("deleting " + str(dl))
             dl.delete()
 
-        return []
+        return model_to_dict(schedule)
 
 
     def save(self, *args, **kwargs):
@@ -1005,7 +1019,7 @@ class TimeSlotManager(models.Manager):
     def instantiate(start, end, schedule, show):
         return TimeSlot(start=datetime.strptime(start, '%Y-%m-%d %H:%M:%S'),
                         end=datetime.strptime(end, '%Y-%m-%d %H:%M:%S'),
-                        show=show, is_repetition=schedule.is_repetition, schedule=schedule)
+                        show=show, is_repetition=schedule.is_repetition, schedule=schedule).generate()
 
     @staticmethod
     def get_or_create_current():
@@ -1097,7 +1111,7 @@ class TimeSlot(models.Model):
     def save(self, *args, **kwargs):
         self.show = self.schedule.show
         super(TimeSlot, self).save(*args, **kwargs)
-        return self;
+        return self
 
     def generate(self, **kwargs):
         """Returns the object instance without saving"""
@@ -1105,9 +1119,10 @@ class TimeSlot(models.Model):
         self.show = self.schedule.show
 
         # Generate a distinct and reproducible hash for the timeslot
-        # Makes sure nothing changed on the timeslot and schedule when resolving conflicts
-        self.hash = hashlib.sha224(str(self.start).encode('utf-8') +  str(self.end).encode('utf-8') + str(self.schedule.until).encode('utf-8') + str(self.schedule.rrule).encode('utf-8') + str(SECRET_KEY).encode('utf-8')).hexdigest()
-        return self;
+        # Makes sure none of these fields changed when updating
+        string = str(self.start) + str(self.end) + str(self.schedule.rrule.id) + str(self.schedule.byweekday)
+        self.hash = str(''.join(s for s in string if s.isdigit()))
+        return self
 
     def get_absolute_url(self):
         return reverse('timeslot-detail', args=[str(self.id)])

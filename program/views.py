@@ -599,21 +599,32 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
         Create a schedule, generate timeslots, test for collisions and resolve them including notes
 
         Only superusers may add schedules
+        TODO: if nothing changed except for is_repetition, fallback_id or automation_id
+        TODO: Prolonging a schedule properly withouth matching against itself
+        + Perhaps directly insert into database if no conflicts found
         """
 
         # Only allow creating when calling /shows/1/schedules/
         if show_pk == None or not request.user.is_superuser:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        # First create submit
-        if isinstance(request.data, dict):
-            return Response(Schedule.make_conflicts(request.data, pk, show_pk))
+        # The schedule dict is mandatory
+        if not 'schedule' in request.data:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        # While resolving
-        if type(request.data) is list:
-            return Response(Schedule.resolve_conflicts(request.data, pk, show_pk))
+        # First create submit -> return projected timeslots and collisions
+        if not 'solutions' in request.data:
+            return Response(Schedule.make_conflicts(request.data['schedule'], pk, show_pk))
 
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        # Otherwise try to resolve
+        resolution = Schedule.resolve_conflicts(request.data, pk, show_pk)
+
+        # If resolution went well
+        if not 'projected' in resolution:
+            return Response(resolution, status=status.HTTP_201_CREATED)
+
+        # Otherwise return conflicts
+        return Response(resolution)
 
 
     def update(self, request, pk=None, show_pk=None):
@@ -629,15 +640,23 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
 
         schedule = get_object_or_404(Schedule, pk=pk, show=show_pk)
 
-        # First update submit
-        if isinstance(request.data, dict):
-            return Response(Schedule.make_conflicts(model_to_dict(schedule), pk, show_pk))
+        # The schedule dict is mandatory
+        if not 'schedule' in request.data:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        # While resolving
-        if type(request.data) is list:
-            return Response(Schedule.resolve_conflicts(request.data, pk, show_pk))
+        # First update submit -> return projected timeslots and collisions
+        if not 'solutions' in request.data:
+            return Response(Schedule.make_conflicts(request.data['schedule'], pk, show_pk))
 
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        # Otherwise try to resolve
+        resolution = Schedule.resolve_conflicts(request.data, pk, show_pk)
+
+        # If resolution went well
+        if not 'projected' in resolution:
+            return Response(resolution, status=status.HTTP_200_OK)
+
+        # Otherwise return conflicts
+        return Response(resolution)
 
 
     def destroy(self, request, pk=None, show_pk=None):

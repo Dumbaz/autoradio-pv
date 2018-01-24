@@ -51,38 +51,44 @@ class ActiveHostsFilter(ActivityFilter):
 
 
 class TypeAdmin(admin.ModelAdmin):
-    list_display = ('type', 'admin_color', 'enabled')
+    list_display = ('type', 'admin_color', 'is_active')
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('type',)}
 
 
 class MusicFocusAdmin(admin.ModelAdmin):
     form = MusicFocusForm
-    list_display = ('focus', 'abbrev', 'admin_buttons')
+    list_display = ('focus', 'abbrev', 'admin_buttons', 'is_active')
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('focus',)}
 
 
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('category', 'abbrev', 'admin_buttons')
+    list_display = ('category', 'abbrev', 'admin_buttons', 'is_active')
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('category',)}
 
 
 class LanguageAdmin(admin.ModelAdmin):
-    list_display = ('name',)
+    list_display = ('name', 'is_active')
+    list_filter = ('is_active',)
 
 
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ('topic', 'abbrev', 'admin_buttons')
+    list_display = ('topic', 'abbrev', 'admin_buttons', 'is_active')
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('topic',)}
 
 
 class RTRCategoryAdmin(admin.ModelAdmin):
-    list_display = ('rtrcategory', 'abbrev', )
+    list_display = ('rtrcategory', 'abbrev', 'is_active' )
+    list_filter = ('is_active',)
     prepopulated_fields = {'slug': ('rtrcategory',)}
 
 
 class HostAdmin(admin.ModelAdmin):
-    list_display = ('name','email',)
-    list_filter = (ActiveHostsFilter, 'is_always_visible',)
+    list_display = ('name', 'email', 'is_active')
+    list_filter = (ActiveHostsFilter, 'is_active',)
 
     def get_queryset(self, request):
         if request.user.is_superuser:
@@ -145,13 +151,13 @@ class NoteAdmin(admin.ModelAdmin):
 
             # Common users only see shows they own
             if not request.user.is_superuser:
-                kwargs['queryset'] = Show.objects.filter(pk__in=request.user.shows.all())
+                kwargs['queryset'] = Show.objects.filter(pk__in=request.user.shows.all(), is_active=True)
 
 
         if db_field.name == 'host':
             # Common users only see hosts of shows they own
             if not request.user.is_superuser:
-                kwargs['queryset'] = Host.objects.filter(shows__in=request.user.shows.all()).distinct()
+                kwargs['queryset'] = Host.objects.filter(shows__in=request.user.shows.all(), is_active=True).distinct()
 
         return super(NoteAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -257,10 +263,39 @@ class ShowAdmin(admin.ModelAdmin):
         except ValueError:
             show_id = None
 
+        print(db_field.name)
+
         if db_field.name == 'predecessor' and show_id:
             kwargs['queryset'] = Show.objects.exclude(pk=show_id)
 
+        if db_field.name == 'type':
+            kwargs['queryset'] = Type.objects.filter(is_active=True)
+
+        if db_field.name == 'rtrcategory':
+            kwargs['queryset'] = RTRCategory.objects.filter(is_active=True)
+
         return super(ShowAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+
+        if db_field.name == 'hosts':
+            kwargs["queryset"] = Host.objects.filter(is_active=True)
+
+        if db_field.name == 'language':
+            kwargs["queryset"] = Language.objects.filter(is_active=True)
+
+        if db_field.name == 'category':
+            kwargs["queryset"] = Category.objects.filter(is_active=True)
+
+        if db_field.name == 'topic':
+            kwargs["queryset"] = Topic.objects.filter(is_active=True)
+
+        if db_field.name == 'musicfocus':
+            kwargs["queryset"] = MusicFocus.objects.filter(is_active=True)
+
+
+        return super(ShowAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
 
     def save_formset(self, request, form, formset, change):

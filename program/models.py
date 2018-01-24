@@ -23,9 +23,9 @@ from pv.settings import SECRET_KEY, AUTO_SET_UNTIL_DATE_TO_END_OF_YEAR, AUTO_SET
 class Type(models.Model):
     type = models.CharField(_("Type"), max_length=32)
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
+    is_active = models.BooleanField(_("Is active?"), default=True)
     color = models.CharField(_("Color"), max_length=7, default='#ffffff')
     text_color = models.CharField(_("Text color"), max_length=7, default='#000000')
-    enabled = models.BooleanField(_("Enabled"), default=True)
 
     class Meta:
         ordering = ('type',)
@@ -47,6 +47,7 @@ class Category(models.Model):
     category = models.CharField(_("Category"), max_length=32)
     abbrev = models.CharField(_("Abbreviation"), max_length=4, unique=True)
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
+    is_active = models.BooleanField(_("Is active?"), default=True)
     color = models.TextField(_("Color"), max_length=7, blank=True)
     description = models.TextField(_("Description"), blank=True)
     button = models.ImageField(_("Button image"), blank=True, null=True, upload_to='buttons')
@@ -106,6 +107,7 @@ class Topic(models.Model):
     topic = models.CharField(_("Topic"), max_length=32)
     abbrev = models.CharField(_("Abbreviation"), max_length=4, unique=True)
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
+    is_active = models.BooleanField(_("Is active?"), default=True)
     button = models.ImageField(_("Button image"), blank=True, null=True, upload_to='buttons')
     button_hover = models.ImageField(_("Button image (hover)"), blank=True, null=True, upload_to='buttons')
     big_button = models.ImageField(_("Big button image"), blank=True, null=True, upload_to='buttons')
@@ -163,6 +165,7 @@ class MusicFocus(models.Model):
     focus = models.CharField(_("Focus"), max_length=32)
     abbrev = models.CharField(_("Abbreviation"), max_length=4, unique=True)
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
+    is_active = models.BooleanField(_("Is active?"), default=True)
     button = models.ImageField(_("Button image"), blank=True, null=True, upload_to='buttons')
     button_hover = models.ImageField(_("Button image (hover)"), blank=True, null=True, upload_to='buttons')
     big_button = models.ImageField(_("Big button image"), blank=True, null=True, upload_to='buttons')
@@ -220,6 +223,7 @@ class RTRCategory(models.Model):
     rtrcategory = models.CharField(_("RTR Category"), max_length=32)
     abbrev = models.CharField(_("Abbreviation"), max_length=4, unique=True)
     slug = models.SlugField(_("Slug"), max_length=32, unique=True)
+    is_active = models.BooleanField(_("Is active?"), default=True)
 
     class Meta:
         ordering = ('rtrcategory',)
@@ -232,6 +236,7 @@ class RTRCategory(models.Model):
 
 class Language(models.Model):
     name = models.CharField(_("Language"), max_length=32)
+    is_active = models.BooleanField(_("Is active?"), default=True)
 
     class Meta:
         ordering = ('language',)
@@ -244,7 +249,7 @@ class Language(models.Model):
 
 class Host(models.Model):
     name = models.CharField(_("Name"), max_length=128)
-    is_always_visible = models.BooleanField(_("Is always visible"), default=False) # Deprecated?
+    is_active = models.BooleanField(_("Is active?"), default=True)
     email = models.EmailField(_("E-Mail"), blank=True)
     website = models.URLField(_("Website"), blank=True, help_text=_("URL to your personal website."))
     biography = tinymce_models.HTMLField(_("Biography"), blank=True, null=True, help_text=_("Describe yourself and your fields of interest in a few sentences."))
@@ -295,8 +300,6 @@ class Host(models.Model):
 
 
 class Show(models.Model):
-    # TODO: add field 'is_always_visible'?
-    # -> categories
     predecessor = models.ForeignKey('self', blank=True, null=True, related_name='successors', verbose_name=_("Predecessor"))
     hosts = models.ManyToManyField(Host, blank=True, related_name='shows', verbose_name=_("Hosts"))
     owners = models.ManyToManyField(User, blank=True, related_name='shows', verbose_name=_("Owners"))
@@ -1091,7 +1094,7 @@ class TimeSlot(models.Model):
     end = models.DateTimeField(_("End time"))
     show = models.ForeignKey(Show, editable=False, related_name='timeslots')
     memo = models.TextField(_("Memo"), blank=True)
-    is_repetition = models.BooleanField(_("REP"), default=False)
+    is_repetition = models.BooleanField(_("(REP)"), default=False)
     playlist_id = models.IntegerField(_("Playlist ID"), null=True)
 
     objects = TimeSlotManager()
@@ -1104,7 +1107,7 @@ class TimeSlot(models.Model):
     def __str__(self):
         start = self.start.strftime('%a, %d.%m.%Y %H:%M')
         end = self.end.strftime('%H:%M')
-        is_repetition = ' (' + _('REP') + ')' if self.schedule.is_repetition is 1 else ''
+        is_repetition = ' ' + _('(REP)') if self.schedule.is_repetition is 1 else ''
 
         return '%s - %s  %s (%s)' % (start, end, is_repetition, self.show.name)
 

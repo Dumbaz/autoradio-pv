@@ -7,7 +7,7 @@ register = template.Library()
 
 @register.inclusion_tag('boxes/type.html')
 def type():
-    return {'type_list': Type.objects.filter(enabled=True)}
+    return {'type_list': Type.objects.filter(is_active=True)}
 
 
 @register.inclusion_tag('boxes/musicfocus.html')

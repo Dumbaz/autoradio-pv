@@ -82,6 +82,7 @@ class CategorySerializer(serializers.ModelSerializer):
         instance.slug = validated_data.get('slug', instance.slug)
         instance.color = validated_data.get('color', instance.color)
         instance.description = validated_data.get('description', instance.description)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -99,7 +100,7 @@ class HostSerializer(serializers.ModelSerializer):
         """
 
         instance.name = validated_data.get('name', instance.name)
-        instance.is_always_visible = validated_data.get('is_always_visible', instance.is_always_visible)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
         instance.email = validated_data.get('email', instance.email)
         instance.website = validated_data.get('website', instance.website)
         instance.biography = validated_data.get('biography', instance.biography)
@@ -127,6 +128,7 @@ class LanguageSerializer(serializers.ModelSerializer):
         Update and return an existing Language instance, given the validated data.
         """
         instance.name = validated_data.get('name', instance.name)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -145,6 +147,7 @@ class TopicSerializer(serializers.ModelSerializer):
         instance.topic = validated_data.get('topic', instance.topic)
         instance.abbrev = validated_data.get('abbrev', instance.abbrev)
         instance.slug = validated_data.get('slug', instance.slug)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -163,6 +166,7 @@ class MusicFocusSerializer(serializers.ModelSerializer):
         instance.focus = validated_data.get('focus', instance.focus)
         instance.abbrev = validated_data.get('abbrev', instance.abbrev)
         instance.slug = validated_data.get('slug', instance.slug)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -182,7 +186,7 @@ class TypeSerializer(serializers.ModelSerializer):
         instance.slug = validated_data.get('slug', instance.slug)
         instance.color = validated_data.get('color', instance.color)
         instance.text_color = validated_data.get('text_color', instance.text_color)
-        instance.enabled = validated_data.get('enabled', instance.enabled)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -201,6 +205,7 @@ class RTRCategorySerializer(serializers.ModelSerializer):
         instance.rtrcategory = validated_data.get('rtrcategory', instance.rtrcategory)
         instance.abbrev = validated_data.get('abbrev', instance.abbrev)
         instance.slug = validated_data.get('slug', instance.slug)
+        instance.is_active = validated_data.get('is_active', instance.is_active)
 
         instance.save()
         return instance
@@ -283,7 +288,6 @@ class ShowSerializer(serializers.HyperlinkedModelSerializer):
         return instance
 
 
-# TODO: collision detection
 class ScheduleSerializer(serializers.ModelSerializer):
     rrule = serializers.PrimaryKeyRelatedField(queryset=RRule.objects.all())
     show = serializers.PrimaryKeyRelatedField(queryset=Show.objects.all())

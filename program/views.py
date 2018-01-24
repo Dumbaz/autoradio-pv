@@ -29,7 +29,7 @@ class CalendarView(TemplateView):
 # Deprecated
 class HostListView(ListView):
     context_object_name = 'host_list'
-    queryset = Host.objects.filter(Q(is_always_visible=True) | Q(shows__schedules__until__gt=datetime.now())).distinct()
+    queryset = Host.objects.filter(Q(is_active=True) | Q(shows__schedules__until__gt=datetime.now())).distinct()
     template_name = 'host_list.html'
 
 
@@ -207,7 +207,7 @@ class StylesView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super(StylesView, self).get_context_data(**kwargs)
-        context['types'] = Type.objects.filter(enabled=True)
+        context['types'] = Type.objects.filter(is_active=True)
         context['musicfocus'] = MusicFocus.objects.all()
         context['category'] = Category.objects.all()
         context['topic'] = Topic.objects.all()
@@ -977,8 +977,9 @@ class APINoteViewSet(viewsets.ModelViewSet):
 
 class APICategoryViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/categories/  Returns all categories (GET, POST)
-    /api/v1/categories/1 Returns a category by its ID (GET, PUT, DELETE)
+    /api/v1/categories/             Returns all categories (GET, POST)
+    /api/v1/categories/?active=true Returns all active categories (GET)
+    /api/v1/categories/1            Returns a category by its ID (GET, PUT, DELETE)
     """
 
     queryset = Category.objects.all()
@@ -986,12 +987,20 @@ class APICategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['categories']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return Category.objects.filter(is_active=True)
+
+        return Category.objects.all()
 
 
 class APITypeViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/types/  Returns all types (GET, POST)
-    /api/v1/types/1 Returns a type by its ID (GET, PUT, DELETE)
+    /api/v1/types/             Returns all types (GET, POST)
+    /api/v1/types/?active=true Returns all active types (GET)
+    /api/v1/types/1            Returns a type by its ID (GET, PUT, DELETE)
     """
 
     queryset = Type.objects.all()
@@ -999,12 +1008,20 @@ class APITypeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['types']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return Type.objects.filter(is_active=True)
+
+        return Type.objects.all()
 
 
 class APITopicViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/topics/  Returns all topics (GET, POST)
-    /api/v1/topics/1 Returns a topic by its ID (GET, PUT, DELETE)
+    /api/v1/topics/             Returns all topics (GET, POST)
+    /api/v1/topics/?active=true Returns all active topics (GET)
+    /api/v1/topics/1            Returns a topic by its ID (GET, PUT, DELETE)
     """
 
     queryset = Topic.objects.all()
@@ -1012,12 +1029,21 @@ class APITopicViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['topics']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return Topic.objects.filter(is_active=True)
+
+        return Topic.objects.all()
+
 
 
 class APIMusicFocusViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/musicfocus/  Returns all musicfocuses (GET, POST)
-    /api/v1/musicfocus/1 Returns a musicfocus by its ID (GET, PUT, DELETE)
+    /api/v1/musicfocus/             Returns all musicfocuses (GET, POST)
+    /api/v1/musicfocus/?active=true Returns all active musicfocuses (GET)
+    /api/v1/musicfocus/1            Returns a musicfocus by its ID (GET, PUT, DELETE)
     """
 
     queryset = MusicFocus.objects.all()
@@ -1025,12 +1051,21 @@ class APIMusicFocusViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['musicfocus']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return MusicFocus.objects.filter(is_active=True)
+
+        return MusicFocus.objects.all()
+
 
 
 class APIRTRCategoryViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/rtrcategories/  Returns all rtrcategories (GET, POST)
-    /api/v1/rtrcategories/1 Returns a rtrcategory by its ID (GET, PUT, DELETE)
+    /api/v1/rtrcategories/             Returns all rtrcategories (GET, POST)
+    /api/v1/rtrcategories/?active=true Returns all active rtrcategories (GET)
+    /api/v1/rtrcategories/1            Returns a rtrcategory by its ID (GET, PUT, DELETE)
     """
 
     queryset = RTRCategory.objects.all()
@@ -1038,11 +1073,21 @@ class APIRTRCategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['rtrcategories']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return RTRCategory.objects.filter(is_active=True)
+
+        return RTRCategory.objects.all()
+
+
 
 class APILanguageViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/languages/  Returns all languages (GET, POST)
-    /api/v1/languages/1 Returns a language by its ID (GET, PUT, DELETE)
+    /api/v1/languages/             Returns all languages (GET, POST)
+    /api/v1/languages/?active=true Returns all active languages (GET)
+    /api/v1/languages/1            Returns a language by its ID (GET, PUT, DELETE)
     """
 
     queryset = Language.objects.all()
@@ -1050,14 +1095,32 @@ class APILanguageViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['languages']
 
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return Language.objects.filter(is_active=True)
+
+        return Language.objects.all()
+
+
 
 class APIHostViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/hosts/  Returns all hosts (GET, POST)
-    /api/v1/hosts/1 Returns a host by its ID (GET, PUT, DELETE)
+    /api/v1/hosts/             Returns all hosts (GET, POST)
+    /api/v1/hosts/?active=true Returns all active hosts (GET)
+    /api/v1/hosts/1            Returns a host by its ID (GET, PUT, DELETE)
     """
 
     queryset = Host.objects.all()
     serializer_class = HostSerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     required_scopes = ['hosts']
+
+    def get_queryset(self):
+        '''Filters'''
+
+        if self.request.GET.get('active') == 'true':
+            return Host.objects.filter(is_active=True)
+
+        return Host.objects.all()

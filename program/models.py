@@ -7,7 +7,6 @@ from django.forms.models import model_to_dict
 from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField, PPOIField
 from django.conf import settings
-import hashlib
 
 from tinymce import models as tinymce_models
 
@@ -432,7 +431,7 @@ class Schedule(models.Model):
     def instantiate_upcoming(sdl, show_pk, pk=None):
         """Returns an upcoming schedule instance for conflict resolution"""
 
-        pk = int(show_pk) if pk != None else None
+        pk = int(pk) if pk != None else None
         rrule = RRule.objects.get(pk=int(sdl['rrule']))
         show = Show.objects.get(pk=int(show_pk))
 
@@ -441,7 +440,9 @@ class Schedule(models.Model):
         automation_id = int(sdl['automation_id']) if sdl['automation_id'] else None
 
         dstart = datetime.strptime(str(sdl['dstart']), '%Y-%m-%d').date()
-        if dstart < datetime.today().date(): # Schedule mustn't start in the past
+
+        # Schedule mustn't start in the past when adding
+        if pk == None and dstart < datetime.today().date():
             dstart = datetime.today().date()
 
         tstart = sdl['tstart'] + ':00' if len(str(sdl['tstart'])) == 5 else sdl['tstart']
@@ -731,11 +732,23 @@ class Schedule(models.Model):
         Returns conflicts dict
         """
 
-        # Generate schedule
+        # Generate schedule to be saved
         schedule = Schedule.instantiate_upcoming(sdl, show_pk, schedule_pk)
 
+        # Copy if dstart changes for generating timeslots
+        gen_schedule = schedule
+
         # Generate timeslots
-        timeslots = Schedule.generate_timeslots(schedule)
+
+        # If extending: Get last timeslot and start generating from that date on
+        if schedule_pk != None:
+            existing_schedule = Schedule.objects.get(pk=int(schedule_pk))
+
+            if schedule.until > existing_schedule.until:
+                last_timeslot = TimeSlot.objects.filter(schedule=existing_schedule).order_by('start').reverse()[0]
+                gen_schedule.dstart = last_timeslot.start.date() + timedelta(days=1)
+
+        timeslots = Schedule.generate_timeslots(gen_schedule)
 
         # Generate conflicts and add schedule
         conflicts = Schedule.generate_conflicts(timeslots)
@@ -759,7 +772,7 @@ class Schedule(models.Model):
         # Regenerate conflicts
         schedule = Schedule.instantiate_upcoming(sdl, show_pk, schedule_pk)
         show = schedule.show
-        conflicts = Schedule.make_conflicts(sdl, schedule.pk, show.pk)
+        conflicts = Schedule.make_conflicts(sdl, schedule_pk, show_pk)
 
         if schedule.rrule.freq > 0 and schedule.dstart == schedule.until:
             return {'detail': _("Start and until dates mustn't be the same")}
@@ -767,7 +780,7 @@ class Schedule(models.Model):
         if schedule.until < schedule.dstart:
             return {'detail': _("Until date mustn't before start")}
 
-        num_conflicts = len([pr for pr in conflicts['projected'] if len(x['collisions']) > 0])
+        num_conflicts = len([pr for pr in conflicts['projected'] if len(pr['collisions']) > 0])
 
         if len(solutions) != num_conflicts:
             return {'detail': _("Numbers of conflicts and solutions don't match.")}
@@ -976,7 +989,7 @@ class Schedule(models.Model):
 
         # Only save schedule if timeslots were created
         if create:
-            # Create or save schedule
+            # Create or update schedule
             schedule.save()
 
             # Delete upcoming timeslots which still remain
@@ -1122,7 +1135,7 @@ class TimeSlot(models.Model):
         self.show = self.schedule.show
 
         # Generate a distinct and reproducible hash for the timeslot
-        # Makes sure none of these fields changed when updating
+        # Makes sure none of these fields changed when updating a schedule
         string = str(self.start) + str(self.end) + str(self.schedule.rrule.id) + str(self.schedule.byweekday)
         self.hash = str(''.join(s for s in string if s.isdigit()))
         return self

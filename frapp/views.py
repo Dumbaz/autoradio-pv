@@ -102,8 +102,8 @@ def json_frapp(request):
         metainfos.append({ 'key': 'ProduzentIn', 'value': ', '.join(ts.show.hosts.values_list('name', flat=True)) })
         metainfos.append({ 'key': 'E-Mail', 'value': ', '.join(ts.show.hosts.values_list('email', flat=True)) })
 
-        image = '' if s.image.name == None else str(get_current_site(request)) + MEDIA_URL + s.image.name
-        url = '' if s.website == None else s.website
+        image = '' if s.image.name == None or s.image.name == '' else str(get_current_site(request)) + MEDIA_URL + s.image.name
+        url = '' if s.website == None or s.website == '' else s.website
 
         # Get active schedules for the given date
         # But include upcoming single timeslots (with rrule_id=1)

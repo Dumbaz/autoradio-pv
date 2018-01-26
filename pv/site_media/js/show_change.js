@@ -52,8 +52,6 @@ django.jQuery(document).ready( function() {
 		var ps_id = django.jQuery(this).closest('tr').attr("id");
       var dstart = django.jQuery(this).val();
 
-      //django.jQuery(this).removeClass('validation-error');
-
    	/* Set the until date to dstart if editing a programslot with freq 'once' */
 		if( django.jQuery('#id_' + ps_id + '-rrule option:selected').val() == 1 ) {
    		django.jQuery('#id_' + ps_id + '-until').show().val(dstart).hide();
@@ -92,11 +90,6 @@ django.jQuery(document).ready( function() {
                    alert('Enddatum darf nicht vor dem Startdatum liegen');
                    django.jQuery(this).addClass('validation-error');
                }
-
-           } else if( until == '' && dstart != '') {
-               e.preventDefault();
-               alert('Enddatum darf nicht leer sein');
-               django.jQuery(this).addClass('validation-error');
            } else if( dstart == '' && until != '') {
            	   e.preventDefault();
            	   alert('Startdatum darf nicht leer sein');

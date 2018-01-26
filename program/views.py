@@ -599,9 +599,7 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
         Create a schedule, generate timeslots, test for collisions and resolve them including notes
 
         Only superusers may add schedules
-        TODO: if nothing changed except for is_repetition, fallback_id or automation_id
-        TODO: Prolonging a schedule properly withouth matching against itself
-        + Perhaps directly insert into database if no conflicts found
+        TODO: Perhaps directly insert into database if no conflicts found
         """
 
         # Only allow creating when calling /shows/1/schedules/
@@ -646,6 +644,7 @@ class APIScheduleViewSet(viewsets.ModelViewSet):
 
         # First update submit -> return projected timeslots and collisions
         if not 'solutions' in request.data:
+            # TODO: If nothing else than fallback_id, automation_id or is_repetition changed -> just save and don't do anything
             return Response(Schedule.make_conflicts(request.data['schedule'], pk, show_pk))
 
         # Otherwise try to resolve

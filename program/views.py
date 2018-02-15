@@ -433,7 +433,7 @@ class APIUserViewSet(viewsets.ModelViewSet):
 
 class APIShowViewSet(viewsets.ModelViewSet):
     """
-    /api/v1/shows/                                             Returns shows a user owns (GET, POST)
+    /api/v1/shows/                                             Returns all shows (GET, POST)
     /api/v1/shows/?active=true                                 Returns all active shows (GET)
     /api/v1/shows/?host=1                                      Returns shows assigned to a given host (GET)
     /api/v1/shows/?owner=1                                     Returns shows of a given owner (GET)
@@ -510,6 +510,7 @@ class APIShowViewSet(viewsets.ModelViewSet):
         """Returns a single show"""
         show = get_object_or_404(Show, pk=pk)
         serializer = ShowSerializer(show)
+
         return Response(serializer.data)
 
 

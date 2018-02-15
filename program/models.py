@@ -16,7 +16,7 @@ from dateutil.rrule import rrule
 
 from .utils import get_automation_id_choices
 
-from pv.settings import SECRET_KEY, AUTO_SET_UNTIL_DATE_TO_END_OF_YEAR, AUTO_SET_UNTIL_DATE_TO_DAYS_IN_FUTURE
+from pv.settings import THUMBNAIL_SIZES, AUTO_SET_UNTIL_DATE_TO_END_OF_YEAR, AUTO_SET_UNTIL_DATE_TO_DAYS_IN_FUTURE
 
 
 class Type(models.Model):
@@ -293,8 +293,8 @@ class Host(models.Model):
         super(Host, self).save(*args, **kwargs)
 
         # Generate thumbnails
-        if self.image.name and settings.THUMBNAIL_SIZES:
-            for size in settings.THUMBNAIL_SIZES:
+        if self.image.name and THUMBNAIL_SIZES:
+            for size in THUMBNAIL_SIZES:
                 thumbnail = self.image.crop[size].name
 
 
@@ -1224,6 +1224,6 @@ class Note(models.Model):
         super(Note, self).save(*args, **kwargs)
 
         # Generate thumbnails
-        if self.image.name and settings.THUMBNAIL_SIZES:
-            for size in settings.THUMBNAIL_SIZES:
+        if self.image.name and THUMBNAIL_SIZES:
+            for size in THUMBNAIL_SIZES:
                 thumbnail = self.image.crop[size].name

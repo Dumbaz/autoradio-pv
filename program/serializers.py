@@ -7,6 +7,8 @@ from profile.models import Profile
 from profile.serializers import ProfileSerializer
 from datetime import datetime
 
+from pv.settings import THUMBNAIL_SIZES
+
 class UserSerializer(serializers.ModelSerializer):
     # Add profile fields to JSON
     profile = ProfileSerializer()
@@ -89,6 +91,18 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class HostSerializer(serializers.ModelSerializer):
+    thumbnails = serializers.SerializerMethodField() # Read-only
+
+    def get_thumbnails(self, host):
+        """Returns thumbnails"""
+        thumbnails = []
+
+        if host.image.name and THUMBNAIL_SIZES:
+            for size in THUMBNAIL_SIZES:
+                thumbnails.append(host.image.crop[size].name)
+
+        return thumbnails
+
     class Meta:
         model = Host
         fields = '__all__'
@@ -220,13 +234,25 @@ class ShowSerializer(serializers.HyperlinkedModelSerializer):
     musicfocus = serializers.PrimaryKeyRelatedField(queryset=MusicFocus.objects.all(),many=True)
     type = serializers.PrimaryKeyRelatedField(queryset=Type.objects.all())
     rtrcategory = serializers.PrimaryKeyRelatedField(queryset=RTRCategory.objects.all())
+    thumbnails = serializers.SerializerMethodField() # Read-only
+
+    def get_thumbnails(self, show):
+        """Returns thumbnails"""
+        thumbnails = []
+
+        if show.image.name and THUMBNAIL_SIZES:
+            for size in THUMBNAIL_SIZES:
+                thumbnails.append(show.image.crop[size].name)
+
+        return thumbnails
+
 
     class Meta:
         model = Show
         fields = ('id', 'name', 'slug', 'image', 'logo', 'short_description', 'description',
                   'email', 'website', 'created', 'last_updated', 'type', 'rtrcategory',
                   'predecessor_id', 'cba_series_id', 'fallback_id', 'category', 'hosts',
-                  'owners', 'language', 'topic', 'musicfocus')
+                  'owners', 'language', 'topic', 'musicfocus', 'thumbnails')
 
 
     def create(self, validated_data):
@@ -356,6 +382,18 @@ class NoteSerializer(serializers.ModelSerializer):
     show = serializers.PrimaryKeyRelatedField(queryset=Show.objects.all())
     timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
     host = serializers.PrimaryKeyRelatedField(queryset=Host.objects.all())
+    thumbnails = serializers.SerializerMethodField() # Read-only
+
+    def get_thumbnails(self, note):
+        """Returns thumbnails"""
+        thumbnails = []
+
+        if note.image.name and THUMBNAIL_SIZES:
+            for size in THUMBNAIL_SIZES:
+                thumbnails.append(note.image.crop[size].name)
+
+        return thumbnails
+
 
     class Meta:
         model = Note

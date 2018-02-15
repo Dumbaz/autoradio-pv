@@ -7,7 +7,7 @@ pv/site_media/buttons/s-*.png
 pv/site_media/buttons/r-*.png
 pv/site_media/show_images/*
 pv/site_media/note_images/*
-pv/site_media/user_images/*
+pv/site_media/host_images/*
 pv/site_media/__sized__/*
 pv/cache/*
 pv/mysql.cnf

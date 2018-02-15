@@ -400,7 +400,7 @@ class ShowAdmin(admin.ModelAdmin):
                 until = datetime.strptime(request.POST.get('ps_save_until'), '%Y-%m-%d').date()
                 is_repetition = request.POST.get('ps_save_is_repetition')
                 automation_id = int(request.POST.get('ps_save_automation_id')) if request.POST.get('ps_save_automation_id') != 'None' else 0
-                fallback_id = int(request.POST.get('fallback_id')) if request.POST.get('ps_save_fallback_id') != 'None' else 0
+                fallback_id = int(request.POST.get('ps_save_fallback_id')) if request.POST.get('ps_save_fallback_id') != 'None' else 0
 
                 # Put timeslot POST vars into lists with same indices
                 for i in range(num_inputs):

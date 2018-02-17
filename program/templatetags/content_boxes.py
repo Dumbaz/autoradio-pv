@@ -1,13 +1,13 @@
 from django import template
 
-from program.models import BroadcastFormat, MusicFocus, ShowInformation, ShowTopic
+from program.models import Type, MusicFocus, Category, Topic
 
 register = template.Library()
 
 
-@register.inclusion_tag('boxes/broadcastformat.html')
-def broadcastformat():
-    return {'broadcastformat_list': BroadcastFormat.objects.filter(enabled=True)}
+@register.inclusion_tag('boxes/type.html')
+def type():
+    return {'type_list': Type.objects.filter(is_active=True)}
 
 
 @register.inclusion_tag('boxes/musicfocus.html')
@@ -15,11 +15,11 @@ def musicfocus():
     return {'musicfocus_list': MusicFocus.objects.all()}
 
 
-@register.inclusion_tag('boxes/showinformation.html')
-def showinformation():
-    return {'showinformation_list': ShowInformation.objects.all()}
+@register.inclusion_tag('boxes/category.html')
+def category():
+    return {'category_list': Category.objects.all()}
 
 
-@register.inclusion_tag('boxes/showtopic.html')
-def showtopic():
-    return {'showtopic_list': ShowTopic.objects.all()}
+@register.inclusion_tag('boxes/topic.html')
+def topic():
+    return {'topic_list': Topic.objects.all()}

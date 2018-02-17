@@ -1,0 +1,192 @@
+- model: program.language
+  pk: 1
+  fields:
+    name: Deutsch
+- model: program.language
+  pk: 2
+  fields:
+    name: Englisch
+- model: program.language
+  pk: 3
+  fields:
+    name: Spanisch
+- model: program.language
+  pk: 4
+  fields:
+    name: Polnisch
+- model: program.language
+  pk: 5
+  fields:
+    name: Farsi
+- model: program.language
+  pk: 6
+  fields:
+    name: Französisch
+- model: program.language
+  pk: 7
+  fields:
+    name: Slowenisch
+- model: program.language
+  pk: 8
+  fields:
+    name: Persisch
+- model: program.language
+  pk: 9
+  fields:
+    name: Arabisch
+- model: program.language
+  pk: 10
+  fields:
+    name: Türkisch
+- model: program.language
+  pk: 11
+  fields:
+    name: Japanisch
+- model: program.language
+  pk: 12
+  fields:
+    name: Italienisch
+- model: program.language
+  pk: 13
+  fields:
+    name: Tschechisch
+- model: program.language
+  pk: 14
+  fields:
+    name: Russisch
+- model: program.language
+  pk: 15
+  fields:
+    name: Chinesisch
+- model: program.language
+  pk: 16
+  fields:
+    name: Ungarisch
+- model: program.language
+  pk: 17
+  fields:
+    name: Serbisch
+- model: program.language
+  pk: 18
+  fields:
+    name: Portugiesisch
+- model: program.language
+  pk: 19
+  fields:
+    name: Kroatisch
+- model: program.language
+  pk: 20
+  fields:
+    name: Albanisch
+- model: program.language
+  pk: 21
+  fields:
+    name: Dari
+- model: program.language
+  pk: 22
+  fields:
+    name: Bosnisch
+- model: program.language
+  pk: 23
+  fields:
+    name: Kurdisch
+- model: program.language
+  pk: 24
+  fields:
+    name: Aserbaidschanisch
+- model: program.language
+  pk: 25
+  fields:
+    name: Slowakisch
+- model: program.language
+  pk: 26
+  fields:
+    name: Niederländisch
+- model: program.language
+  pk: 27
+  fields:
+    name: Bulgarisch
+- model: program.language
+  pk: 28
+  fields:
+    name: Somali
+- model: program.language
+  pk: 29
+  fields:
+    name: Tschetschenisch
+- model: program.language
+  pk: 30
+  fields:
+    name: Dänisch
+- model: program.language
+  pk: 31
+  fields:
+    name: Rumänisch
+- model: program.language
+  pk: 32
+  fields:
+    name: Thai
+- model: program.language
+  pk: 33
+  fields:
+    name: Finnisch
+- model: program.language
+  pk: 34
+  fields:
+    name: Romanes
+- model: program.language
+  pk: 35
+  fields:
+    name: Griechisch
+- model: program.language
+  pk: 36
+  fields:
+    name: Singhalesisch
+- model: program.language
+  pk: 37
+  fields:
+    name: Urdu
+- model: program.language
+  pk: 38
+  fields:
+    name: Estnisch
+- model: program.language
+  pk: 39
+  fields:
+    name: Mazedonisch
+- model: program.language
+  pk: 40
+  fields:
+    name: Hebräisch
+- model: program.language
+  pk: 41
+  fields:
+    name: Schwedisch
+- model: program.language
+  pk: 42
+  fields:
+    name: Lithauisch
+- model: program.language
+  pk: 43
+  fields:
+    name: Jiddisch
+- model: program.language
+  pk: 44
+  fields:
+    name: Isländisch
+- model: program.language
+  pk: 45
+  fields:
+    name: Litauisch
+- model: program.language
+  pk: 46
+  fields:
+    name: Amharisch
+- model: program.language
+  pk: 47
+  fields:
+    name: Norwegisch
+- model: program.language
+  pk: 48
+  fields:
+    name: Koreanisch

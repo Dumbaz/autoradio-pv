@@ -39,7 +39,7 @@ WHERE n.sendung_id in (SELECT id FROM sendungen WHERE letzter_termin > current_d
                     print 'show with name "%s" not found' % stitel
                 else:
                     try:
-                        timeslot = TimeSlot.objects.get(programslot__show=show, start__year=year, start__month=month,
+                        timeslot = TimeSlot.objects.get(schedule__show=show, start__year=year, start__month=month,
                                                         start__day=day)
                     except ObjectDoesNotExist:
                         print 'no timeslot found for sendung "%s" and datum "%s"' % (stitel, datum)

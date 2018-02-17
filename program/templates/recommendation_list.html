@@ -8,15 +8,15 @@
     <h1>Programmhinweise</h1>
     <div id="shows">
         {% for recommendation in recommendation_list %}
-            <div class="show recommendation  bf-{{ recommendation.show.broadcastformat.slug }}">
+            <div class="show recommendation  ty-{{ recommendation.show.type.slug }}">
                 <div class="show-abbrevs">
-                    {% for si in recommendation.show.showinformation.all %}
-                        <span title="{{ si.information }}"
-                              class="abbrev si-{{ si.abbrev }}"><span>{{ si.abbrev }}</span></span>
+                    {% for ca in recommendation.show.category.all %}
+                        <span title="{{ ca.category }}"
+                              class="abbrev ca-{{ ca.abbrev }}"><span>{{ ca.abbrev }}</span></span>
                     {% endfor %}
-                    {% for st in recommendation.show.showtopic.all %}
-                        <span title="{{ st.topic }}"
-                              class="abbrev st-{{ st.abbrev }}"><span>{{ st.abbrev }}</span></span>
+                    {% for to in recommendation.show.topic.all %}
+                        <span title="{{ to.topic }}"
+                              class="abbrev to-{{ to.abbrev }}"><span>{{ to.abbrev }}</span></span>
                     {% endfor %}
                     {% for mf in recommendation.show.musicfocus.all %}
                         <span title="{{ mf.focus }}"
@@ -34,7 +34,7 @@
                         <div class="note-content">{{ recommendation.note.content|safe }}</div>
                     {% else %}
                         <h3 class="show-title"><a
-                                href="{% url "timeslot-detail" recommendation.id %}">{{ recommendation.show.broadcastformat.format }}</a>
+                                href="{% url "timeslot-detail" recommendation.id %}">{{ recommendation.show.type.type }}</a>
                         </h3>
                     {% endif %}
                 </div>

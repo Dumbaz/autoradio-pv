@@ -29,7 +29,7 @@ class Command(BaseCommand):
         end = datetime.strptime('%d__01__01__00__00' % (year+1), '%Y__%m__%d__%H__%M')
 
         currentDate = None
-        for ts in TimeSlot.objects.filter(end__gt=start, start__lt=end).select_related('programslot').select_related('show'):
+        for ts in TimeSlot.objects.filter(end__gt=start, start__lt=end).select_related('schedule').select_related('show'):
             if currentDate == None or currentDate < ts.start.date():
                 if currentDate:
                     print "\n"
@@ -37,8 +37,7 @@ class Command(BaseCommand):
                 print currentDate.strftime("## %a %d.%m.%Y:\n")
 
             title = ts.show.name
-            if ts.programslot.is_repetition:
+            if ts.schedule.is_repetition:
                 title += " (WH)"
 
             print " * **%s - %s**: %s" % (ts.start.strftime("%H:%M:%S"), ts.end.strftime("%H:%M:%S"), title)
-

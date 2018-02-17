@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from program.models import ProgramSlot
+from program.models import Schedule
 
 
 class Command(BaseCommand):
@@ -13,4 +13,4 @@ class Command(BaseCommand):
         else:
             raise CommandError('you must provide the automation_id')
 
-        ProgramSlot.objects.filter(automation_id=automation_id).update(automation_id=None)
+        Schedule.objects.filter(automation_id=automation_id).update(automation_id=None)

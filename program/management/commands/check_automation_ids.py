@@ -4,7 +4,7 @@ from os.path import join
 from django.conf import settings
 from django.core.management.base import NoArgsCommand
 
-from program.models import ProgramSlot
+from program.models import Schedule
 
 
 class Command(NoArgsCommand):
@@ -23,8 +23,8 @@ class Command(NoArgsCommand):
                 rd_ids[show['id']] = show
 
             pv_ids = []
-            for programslot in ProgramSlot.objects.filter(automation_id__isnull=False):
-                pv_ids.append(int(programslot.automation_id))
+            for schedule in Schedule.objects.filter(automation_id__isnull=False):
+                pv_ids.append(int(schedule.automation_id))
 
             for automation_id in sorted(rd_ids.iterkeys()):
                 if rd_ids[automation_id]['type'] == 's':

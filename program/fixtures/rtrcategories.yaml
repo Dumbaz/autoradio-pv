@@ -1,0 +1,6 @@
+- model: program.rtrcategory
+  pk: 1
+  fields:
+    rtrcategory: Standard
+    abbrev: S
+    slug: standard

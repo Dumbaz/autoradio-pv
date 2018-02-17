@@ -1,0 +1,16 @@
+{% if category_list %}
+    <dl id="filterbox_category" class="portlet filterbox">
+        <dt class="portletHeader"><span>Sendungsinfo<span></dt>
+        <dd class="portletItem">
+            <ul>
+                {% for ca in category_list %}
+                    <li>
+                        <a title="Sendungen mit der Kategorie {{ ca.category }} anzeigen."
+                           class="abbrev ca-{{ ca.abbrev }}"
+                           href="?category={{ ca.slug }}">{{ ca.category }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </dd>
+    </dl>
+{% endif %}

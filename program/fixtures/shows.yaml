@@ -2,7 +2,8 @@
   pk: 1
   fields:
     hosts: [1]
-    broadcastformat: 3
+    type: 3
+    rtrcategory: 1
     name: Musikprogramm
     slug: musikprogramm
     description: Unmoderiertes Musikprogramm

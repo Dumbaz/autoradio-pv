@@ -5,16 +5,16 @@
 <body>
 
 {% load content_boxes %}
-<div id="filter-format">
-    {% broadcastformat %}
+<div id="filter-type">
+    {% type %}
 </div>
 <div id="filter-topic">
     <dl id="filter-header" class="portlet">
         <dt class="portletHeader"><span>Filter</span></dt>
     </dl>
     {% musicfocus %}
-    {% showinformation %}
-    {% showtopic %}
+    {% category %}
+    {% topic %}
 </div>
 
 <div id="content-main" class="show-list">
@@ -22,15 +22,15 @@
 
     <div id="shows">
         {% for show in show_list %}
-            <div class="show bf-{{ show.broadcastformat.slug }}">
+            <div class="show ty-{{ show.type.slug }}">
                 <div class="show-abbrevs">
-                    {% for si in show.showinformation.all %}
-                        <span title="{{ si.information }}"
-                              class="abbrev si-{{ si.abbrev }}"><span>{{ si.abbrev }}</span></span>
+                    {% for ca in show.category.all %}
+                        <span title="{{ ca.category }}"
+                              class="abbrev ca-{{ ca.abbrev }}"><span>{{ ca.abbrev }}</span></span>
                     {% endfor %}
-                    {% for st in show.showtopic.all %}
-                        <span title="{{ st.topic }}"
-                              class="abbrev st-{{ st.abbrev }}"><span>{{ st.abbrev }}</span></span>
+                    {% for to in show.topic.all %}
+                        <span title="{{ to.topic }}"
+                              class="abbrev to-{{ to.abbrev }}"><span>{{ to.abbrev }}</span></span>
                     {% endfor %}
                     {% for mf in show.musicfocus.all %}
                         <span title="{{ mf.focus }}"
@@ -39,9 +39,9 @@
                 </div>
                 <div class="show-detail">
                     <h3 class="show-title"><a href="{% url "show-detail" show.slug %}">{{ show.name }}</a></h3>
-                    <ul class="show-programslots">
-                        {% for programslot in show.active_program_slots %}
-                            <li class="show-programslot">{{ programslot }}</li>
+                    <ul class="show-schedules">
+                        {% for schedule in show.active_schedules %}
+                            <li class="show-schedule">{{ schedule }}</li>
                         {% endfor %}
                     </ul>
                     <p class="show-description">{{ show.short_description }}</p>

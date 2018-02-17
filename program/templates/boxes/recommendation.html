@@ -13,8 +13,8 @@
                 {% for recommendation in recommendation_list %}
                     <tr>
                         <td class="start">&nbsp;</td>
-                        <td class="format bf-{{ recommendation.show.broadcastformat.slug }}"
-                            title="{{ recommendation.show.broadcastformat.format }}">&nbsp;</td>
+                        <td class="type ty-{{ recommendation.show.type.slug }}"
+                            title="{{ recommendation.show.type.type }}">&nbsp;</td>
                         <td class="show">
                             {{ recommendation.start|date:"d.m. H:i" }} - {{ recommendation.end|date:"H:i" }}<br/>
                             <h3>
@@ -24,7 +24,7 @@
                                 {% if recommendation.note %}
                                     {{ recommendation.note.title }}<br/>
                                 {% else %}
-                                    {{ recommendation.show.broadcastformat.format }}<br/>
+                                    {{ recommendation.show.type.type }}<br/>
                                 {% endif %}
                                 <a href="{% url "timeslot-detail" recommendation.id %}">[weiter]</a>
                             </p>

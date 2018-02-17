@@ -8,6 +8,9 @@ PROJECT_DIR = os.path.dirname(__file__)
 
 DEBUG = True
 
+# Must be set if DEBUG is False
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
 ADMINS = ()
 
 MANAGERS = ADMINS
@@ -26,6 +29,9 @@ DATABASES = {
 DATABASE_ROUTERS = ['nop.dbrouter.NopRouter']
 
 TIME_ZONE = 'Europe/Vienna'
+
+# django-oidc-provider needs timezones in database
+USE_TZ = True
 
 LANGUAGE_CODE = 'de'
 
@@ -77,6 +83,17 @@ MIDDLEWARE_CLASSES = (
 
 ROOT_URLCONF = 'pv.urls'
 
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        #'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ],
+    'DEFAULT AUTHENTICATION_CLASSES': [
+    ],
+}
+
 INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -87,22 +104,59 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'program',
     'nop',
+    'profile',
     'tinymce',
+    'versatileimagefield',
+    'rest_framework',
+    'rest_framework_nested',
+    'frapp',
+    'oidc_provider',
 )
 
-TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
+THUMBNAIL_SIZES = ['640x480', '200x200', '150x150']
+
+#TINYMCE_JS_URL = '/static/js/tiny_mce/tiny_mce.js'
 TINYMCE_DEFAULT_CONFIG = {
-    'plugins': 'contextmenu',
+    #'plugins': 'contextmenu',
+    'selector': 'textarea',
     'theme': 'advanced',
     'theme_advanced_toolbar_location': 'top',
+    'theme_advanced_buttons1' : 'bold,italic,underline,separator,bullist,numlist,separator,link,unlink,separator,undo,redo,separator,formatselect',
+    'theme_advanced_blockformats': 'p,h1,h2,h3,blockquote',
+    'theme_advanced_font_sizes': '14px,16px',
+    'cleanup_on_startup': True,
+    'width': 620,
+    'height': 400,
 }
 
 CACHE_BACKEND = 'locmem://'
+
+# When generating schedules/timeslots:
+# If until date wasn't set, add x days to start time
+AUTO_SET_UNTIL_DATE_TO_DAYS_IN_FUTURE = 365
+
+# If until date wasn't set, auto-set it to the end of the year
+# Overrides the above setting if True
+AUTO_SET_UNTIL_DATE_TO_END_OF_YEAR = True
 
 MUSIKPROG_IDS = (
     1,    # unmodieriertes musikprogramm
 )
 SPECIAL_PROGRAM_IDS = ()
+
+# URL to CBA - Cultural Broadcasting Archive
+CBA_URL = 'https://cba.fro.at'
+
+# Contact cba@fro.at to be whitelisted and get an API KEY
+# Leave empty to disable requests to CBA
+CBA_API_KEY = ''
+
+# URL to CBA ajax handler (used for retrieving additional data or increasing stream counter)
+CBA_AJAX_URL = CBA_URL + '/wp-admin/admin-ajax.php'
+
+# URL to CBA's REST API with trailing slash
+CBA_REST_API_URL = CBA_URL + '/wp-json/wp/v2/'
+
 
 try:
     from .local_settings import *

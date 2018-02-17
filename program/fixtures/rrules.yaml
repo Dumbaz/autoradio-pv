@@ -12,18 +12,70 @@
 - model: program.rrule
   pk: 3
   fields:
+    name: werktäglich
+    freq: 3
+- model: program.rrule
+  pk: 4
+  fields:
     name: wöchentlich
     freq: 2
     interval: 1
 - model: program.rrule
-  pk: 4
+  pk: 5
   fields:
     name: zweiwöchentlich
     freq: 2
     interval: 2
 - model: program.rrule
-  pk: 5
+  pk: 6
   fields:
     name: vierwöchentlich
     freq: 2
     interval: 4
+- model: program.rrule
+  pk: 7
+  fields:
+    name: gerade Kalenderwoche
+    freq: 2
+    interval: 1
+- model: program.rrule
+  pk: 8
+  fields:
+    name: ungerade Kalenderwoche
+    freq: 2
+    interval: 1
+- model: program.rrule
+  pk: 9
+  fields:
+    name: Jede 1. Woche im Monat
+    freq: 1
+    interval: 1
+    bysetpos: 1
+- model: program.rrule
+  pk: 10
+  fields:
+    name: Jede 2. Woche im Monat
+    freq: 1
+    interval: 1
+    bysetpos: 2
+- model: program.rrule
+  pk: 11
+  fields:
+    name: Jede 3. Woche im Monat
+    freq: 1
+    interval: 1
+    bysetpos: 3
+- model: program.rrule
+  pk: 12
+  fields:
+    name: Jede 4. Woche im Monat
+    freq: 1
+    interval: 1
+    bysetpos: 4
+- model: program.rrule
+  pk: 13
+  fields:
+    name: Jede 5. Woche im Monat
+    freq: 1
+    interval: 1
+    bysetpos: 5

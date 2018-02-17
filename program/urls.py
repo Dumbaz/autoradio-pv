@@ -9,6 +9,7 @@ import os
 PROGRAM_SITE_MEDIA = os.path.join(os.path.dirname(__file__), '../site_media')
 
 urlpatterns = [
+    url(r'^calendar/?$', views.CalendarView.as_view()),
     url(r'^today/?$', views.DayScheduleView.as_view()),
     url(r'^week/?$', views.WeekScheduleView.as_view()),
     url(r'^(?P<year>\d{4})/(?P<month>\d{1,2})/(?P<day>\d{1,2})/?$', views.DayScheduleView.as_view()),

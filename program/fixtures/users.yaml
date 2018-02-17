@@ -4,8 +4,8 @@
     id: 2
     password: pbkdf2_sha256$36000$uMBrNYea7vcc$6599RKSDzRkpoO8lcOjOQI/O1ufPXphIYh10VNqZcYU=
     last_login: NULL
-    is_superuser: 0
-    username: pm1
+    is_superuser: 1
+    username: admin
     is_staff: 1
     is_active: 1
     date_joined: 2017-11-22 00:00:00

@@ -1,10 +1,10 @@
 Django==1.11.3
 mysqlclient
 Pillow==4.2.1
-PyYAML==3.12
+PyYAML
 django-tinymce==2.6.0
 python-dateutil==2.6.0
 django-versatileimagefield==1.8.1
-djangorestframework=3.7.3
+djangorestframework==3.7.3
 drf-nested-routers==0.90.0
 django-oidc-provider==0.5.2

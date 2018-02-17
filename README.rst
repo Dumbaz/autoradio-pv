@@ -5,6 +5,14 @@ AURA Steering: Program Scheduler
 Installation
 ------------
 
+If you have a working Docker environment, do
+
+	$ docker build -t pv_container .
+	$ docker run -p 8000:8000 -d pv_container:latest
+
+and log into it at http://127.0.0.1:8000/admin/ with admin/admin as username/password.
+Full setup without Docker is done as described below.
+
 To get setup you must have the following installed:
 
  * MySQL-Client Development libraries
